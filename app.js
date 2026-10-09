@@ -9,7 +9,38 @@ function recordRecipe(date){if(!state.recipes.length){alert('Primero añade una 
 function removeFood(id){if(!confirm('¿Eliminar registro?'))return;state.consumed=(state.consumed||[]).filter(x=>x.id!==id);save();render()}
 function addWorkout(date){let sport=prompt('Deporte practicado (natación, ciclismo, carrera, fuerza...)');if(!sport)return;let mins=prompt('Duración en minutos (opcional)','');if(mins===null)return;let kcal=prompt('Calorías activas estimadas (opcional)','');if(kcal===null)return;let m=mins.trim()?Number(mins):null,c=kcal.trim()?Number(kcal):null;if((m!==null&&(!Number.isFinite(m)||m<0))||(c!==null&&(!Number.isFinite(c)||c<0))){alert('Introduce números válidos.');return}state.workouts=state.workouts||[];state.workouts.push({id:eid(),date,sport,minutes:m,activeCalories:c,origin:'manual'});save();render()}
 function removeWorkout(id){if(!confirm('¿Eliminar entrenamiento?'))return;state.workouts=(state.workouts||[]).filter(x=>x.id!==id);save();render()}
-function trainingPage(){let start=weekStart(),days=Array.from({length:7},(_,i)=>datePlus(start,i));return top('Entrenamientos','Deporte y gasto energético estimado; guardados junto con tus recetas.')+
+
+let stravaItems=[],stravaStatus='Sin conectar o sin cargar',stravaLoading=false;
+async function connectStrava(){
+ const client=window.NutriCloud?.getClient?.(),user=window.NutriCloud?.getUser?.();
+ if(!client||!user){alert('Primero inicia sesión en Mi perfil con Supabase.');return}
+ try{
+  const {data:{session}}=await client.auth.getSession();
+  const endpoint=window.NUTRIBOOK_SUPABASE.url+'/functions/v1/strava-oauth';
+  const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':window.NUTRIBOOK_SUPABASE.key},body:'{}'});
+  const body=await res.json();if(!res.ok)throw Error(body.error||'Error de OAuth');
+  window.location.assign(body.url);
+ }catch(e){alert('Error al conectar Strava: '+e.message)}
+}
+async function fetchStrava(){
+ const client=window.NutriCloud?.getClient?.(),user=window.NutriCloud?.getUser?.();
+ if(!client||!user){stravaStatus='Inicia sesión en Mi perfil para consultar Strava';render();return}
+ stravaLoading=true;stravaStatus='Consultando actividades...';render();
+ try{
+ const {data,error}=await client.from('strava_activities').select('strava_id,name,sport_type,start_date,moving_time,distance_m,calories,average_heartrate').order('start_date',{ascending:false}).limit(150);
+ if(error)throw error;
+ stravaItems=data||[];
+ stravaStatus=stravaItems.length?'Actividades sincronizadas con Supabase':'No hay actividades todavía. Conecta Strava o sincroniza tu Garmin.';
+ }catch(e){stravaStatus='No se pudieron leer actividades: '+e.message}
+ finally{stravaLoading=false;render()}
+}
+function stravaPanel(){const start=weekStart(),end=datePlus(start,6),wk=stravaItems.filter(x=>x.start_date&&x.start_date.slice(0,10)>=start&&x.start_date.slice(0,10)<=end),mins=wk.reduce((n,x)=>n+(x.moving_time||0),0)/60;
+return '<div class="section-head"><h2>Actividades automáticas · Strava</h2></div>'+
+'<div class="card"><p class="muted">'+h(stravaStatus)+'</p><div class="buttons"><button class="btn primary" onclick="connectStrava()">Conectar Strava</button><button class="btn" onclick="fetchStrava()" '+(stravaLoading?'disabled':'')+'>Actualizar actividades</button></div>'+
+'<p class="small muted">Garmin → Strava → Supabase → NutriBook. La autorización y los tokens se guardan en el servidor. El gasto calórico puede no estar disponible en Strava.</p>'+
+'<div class="metric">'+wk.length+' actividades · '+mins.toFixed(0)+' min esta semana</div>'+
+stravaItems.slice(0,20).map(a=>'<div class="item"><div><b>'+h(a.name||a.sport_type||'Actividad')+'</b><small>'+h(a.start_date?.slice(0,10)||'')+' · '+Math.round((a.moving_time||0)/60)+' min · '+(a.distance_m?Number(a.distance_m/1000).toFixed(2)+' km · ':'')+(a.average_heartrate?Math.round(a.average_heartrate)+' ppm · ':'')+(a.calories==null?'Calorías no disponibles':Number(a.calories).toFixed(0)+' kcal estimadas')+'</small></div></div>').join('')+'</div>'}
+function trainingPage(){let start=weekStart(),days=Array.from({length:7},(_,i)=>datePlus(start,i));return top('Entrenamientos','Deporte y gasto energético estimado; guardados junto con tus recetas.')+stravaPanel()+
 '<div class="buttons"><button class="btn primary" onclick="addWorkout(today())">+ Añadir entrenamiento</button><button class="btn" onclick="document.getElementById(\'garmin-file\').click()">Importar CSV Garmin</button><input id="garmin-file" type="file" accept=".csv" hidden onchange="importGarmin(this)"></div>'+
 '<div class="notice">Garmin Connect permite exportar la lista de actividades como CSV. La columna Calories puede representar calorías totales, no solo activas; se conserva separadamente y no se utiliza para calcular objetivos energéticos.</div>'+
 '<div class="section-head"><h2>Esta semana</h2></div><div class="card">'+days.map(d=>'<div class="item"><div><b>'+h(d)+'</b><div class="small muted">'+(state.workouts||[]).filter(w=>w.date===d).map(w=>h(w.sport)+' '+(w.minutes===null?'':'· '+w.minutes+' min')+' '+(w.activeCalories===null?'':'· '+w.activeCalories+' kcal activas')+(w.reportedCalories==null?'':'· '+w.reportedCalories+' kcal Garmin (tipo sin verificar)')+' <button class="btn danger" onclick="removeWorkout(\''+w.id+'\')">Quitar</button>').join('<hr>')+'</div></div><button class="btn" onclick="addWorkout(\''+d+'\')">+ Añadir</button></div>').join('')+'</div>'}
