@@ -21,3 +21,11 @@ Abre la carpeta y ejecuta **Live Server** sobre `index.html`. No necesitas Node 
 - La sincronización es una copia JSON completa de recetas/calendario/despensa/perfil, adecuada como primera etapa. No combina ediciones simultáneas entre dispositivos; la última guardada puede prevalecer.
 - Si el navegador está sin conexión, usa la exportación JSON como copia de seguridad. El estado de sincronización se muestra en **Mi perfil**.
 - GitHub almacena el código, **no** las recetas privadas.
+
+## Nuevas funciones: hierro y entrenamiento
+
+- En **Mi equilibrio**, registra las comidas consumidas manualmente o seleccionando una receta existente; consulta hierro diario y semanal. Los valores faltantes no se cuentan como cero verificado.
+- En **Entrenamientos**, anota deporte, minutos y calorías activas estimadas.
+- Garmin Connect: en la web ve a **Actividades → Todas las actividades → Export CSV**, e importa ese CSV en NutriBook. Esta importación es un resumen inicial; comprueba fechas y calorías. Las calorías CSV se guardan como `reportedCalories` y no se suponen activas.
+- Todo forma parte del JSON local y de la carga de Supabase existente cuando haya una sesión y una sincronización activas.
+- La conexión automática OAuth/Developer Program con Garmin y las recomendaciones nutricionales basadas en entrenamientos aún **no** están integradas.
