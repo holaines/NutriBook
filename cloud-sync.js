@@ -81,5 +81,5 @@
   }
   async function signOut(){const {error}=await client.auth.signOut();if(error)note(error.message);else {user=null;ready=false;note('Sesión cerrada.');}}
   async function syncNow(){if(!user){note('Inicia sesión primero.');return}await connect(user)}
-  window.NutriCloud={panel,start,scheduleSave,signIn,signOut,syncNow};
+  window.NutriCloud={panel,start,scheduleSave,signIn,signOut,syncNow,getClient:()=>client,getUser:()=>user};
 })();
