@@ -29,3 +29,15 @@ Abre la carpeta y ejecuta **Live Server** sobre `index.html`. No necesitas Node 
 - Garmin Connect: en la web ve a **Actividades → Todas las actividades → Export CSV**, e importa ese CSV en NutriBook. Esta importación es un resumen inicial; comprueba fechas y calorías. Las calorías CSV se guardan como `reportedCalories` y no se suponen activas.
 - Todo forma parte del JSON local y de la carga de Supabase existente cuando haya una sesión y una sincronización activas.
 - La conexión automática OAuth/Developer Program con Garmin y las recomendaciones nutricionales basadas en entrenamientos aún **no** están integradas.
+
+## Estimar hierro mediante USDA FoodData Central
+
+Abre **Recetas → Ver receta → Calcular hierro por ingredientes**. Busca cada alimento, comprueba la coincidencia exacta (crudo/cocido/seco), introduce los gramos comestibles, elige un resultado oficial USDA y pulsa **Guardar cálculo**. La app calcula:
+
+`hierro por ración = sumatoria(gramos ingrediente × hierro mg/100 g) / 100 / raciones`.
+
+Solo guarda un total en `iron` cuando **todos los ingredientes** tienen datos de hierro y peso en gramos. Si falta información, muestra un subtotal marcado **parcial**, que no se incorpora al seguimiento. Un valor ausente no equivale a cero. Se guardan las elecciones y referencias USDA (ID FDC) en el JSON/Supabase.
+
+Se usa `DEMO_KEY` de USDA únicamente para pruebas; está sujeto a límites de uso y puede no responder. Para producción, usa un proxy/función de servidor con clave privada propia (no publiques esa clave en JavaScript). No hay conversión automática de cucharadas, tazas, unidades o medidas caseras, ni corrección por retención durante la cocción. Cambiar ingredientes o raciones en «Editar receta» invalida el cálculo y es necesario revisarlo.
+
+Fuente: https://fdc.nal.usda.gov/api-guide/
