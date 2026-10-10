@@ -32,6 +32,12 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$(jq -Rs '{query: .}' < rak.sql)"
 
+      - name: Set GEMINI_KEY secret on Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+        run: supabase secrets set GEMINI_KEY="$GEMINI_KEY" --project-ref cyewzqlkjbvsllotaywu
+
       - name: Deploy rak-fetch Edge Function
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
