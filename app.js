@@ -73,7 +73,7 @@ async function calculateIronLLM(id,silent=false){
   const ingredients=(r.ingredients||[]).map(i=>`- ${i.quantity!=null?i.quantity+' '+i.unit+' ':''}${i.name}`).join('\n');
   const prompt=`Eres un experto en nutrici\u00f3n. Estima el contenido de hierro de esta receta usando datos USDA.\n\nReceta: ${r.name}\nRaciones: ${r.servings||1}\nIngredientes:\n${ingredients}\n\nPara cantidades vagas (un poquito, al gusto, etc.), asume una cantidad t\u00edpica peque\u00f1a.\nEn "notes" indica en 1-2 frases cu\u00e1les son los ingredientes que m\u00e1s hierro aportan.\nDevuelve SOLO JSON v\u00e1lido:\n{"iron_per_serving_mg":<n\u00famero>,"total_iron_mg":<n\u00famero>,"confidence":"high|medium|low","notes":"<explicaci\u00f3n breve en espa\u00f1ol>"}`;
   try{
-    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite:generateContent',
       {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0}})});
     if(!res.ok){const err=await res.json().catch(()=>({}));throw Error('Gemini '+res.status+': '+(err?.error?.message||JSON.stringify(err)));}
