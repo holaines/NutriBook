@@ -99,7 +99,7 @@
     ['nueces de brasil', 2.43, 'nueces del brasil', 'brazil nuts'],
 
     // Frutas secas y frutos con cáscara
-    ['castanas', 1.01, 'castañas', 'castaña', 'chestnuts', 'chestnut', 'castañas asadas', 'castañas cocidas', 'castañas al horno'],
+    ['castanas', 1.01, 'castañas', 'castaña', 'chestnuts', 'chestnut', 'castañas asadas', 'castañas cocidas', 'castañas al horno', 'chataignes', 'chataigne', 'marrons', 'marron'],
     ['datiles secos', 1.02, 'dátiles', 'datiles', 'dates'],
     ['pasas', 1.79, 'uvas pasas', 'raisins'],
     ['orejones', 6.31, 'albaricoques secos', 'orejones de albaricoque', 'dried apricots'],
