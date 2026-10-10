@@ -36,6 +36,21 @@ button[disabled]{opacity:.6;cursor:not-allowed}
 .user-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--line);display:block;margin:8px 10px 0}
 .sync-avatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0}
 
+/* RAK — restaurant universitaire */
+.rak-slot{margin:8px 0}
+.rak-slot-inner{border-radius:10px;padding:9px 10px;font-size:11px;border:1px solid var(--line);background:#fdf7fa}
+.rak-label{font-size:10px;font-weight:750;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.rak-indicator{font-weight:600;margin-bottom:3px}
+.rak-iron-note{font-size:10px;color:var(--muted);margin-bottom:5px}
+.rak-slot-inner .buttons{margin-top:5px;gap:5px}
+.rak-slot-inner .btn{font-size:10px;padding:5px 8px}
+.rak-status-good-iron{border-color:#a8d5b0;background:#f0faf2}
+.rak-status-good-iron .rak-indicator{color:#2d6e3a}
+.rak-status-low-iron{border-color:#f0c5c5;background:#fff5f5}
+.rak-status-low-iron .rak-indicator{color:#9b3434}
+.rak-status-no-gf{border-color:#ddd;background:#fafafa}
+.rak-status-no-gf .rak-indicator{color:var(--muted)}
+
 @media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.calendar{grid-template-columns:repeat(7,165px)}}
 
 @media(max-width:750px){

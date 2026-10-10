@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages + Supabase
 
 on:
   push:
@@ -10,7 +10,29 @@ permissions:
   id-token: write
 
 jobs:
-  deploy:
+  # Déploie la table rak_menus et la Edge Function rak-fetch
+  # Nécessite le secret SUPABASE_ACCESS_TOKEN (token personnel depuis
+  # https://supabase.com/dashboard/account/tokens)
+  deploy-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create rak_menus table (idempotent)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db execute --project-ref cyewzqlkjbvsllotaywu -f rak.sql
+
+      - name: Deploy rak-fetch Edge Function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy rak-fetch --project-ref cyewzqlkjbvsllotaywu
+
+  deploy-pages:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
