@@ -22,6 +22,8 @@ try{
  }
  if(req.method==="GET"){
   const state=u.searchParams.get("state"),code=u.searchParams.get("code");
+  // Limpiar nonces expirados en cada petición GET
+  await admin.from("strava_oauth_states").delete().lt("expires_at",new Date().toISOString());
   const record=state?await admin.from("strava_oauth_states").select("user_id,expires_at").eq("nonce",state).maybeSingle():null;
   if(!record?.data||new Date(record.data.expires_at).getTime()<Date.now())return new Response("Estado OAuth caducado o inválido",{status:400});
   await admin.from("strava_oauth_states").delete().eq("nonce",state);

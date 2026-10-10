@@ -36,4 +36,6 @@ grant select on public.strava_activities to authenticated;
 revoke all on public.strava_activities from anon;
 drop policy if exists "view own Strava activities" on public.strava_activities;
 create policy "view own Strava activities" on public.strava_activities for select to authenticated using ((select auth.uid())=user_id);
+-- Índice para acelerar queries filtradas solo por user_id en strava_activities
+create index if not exists idx_strava_activities_user_id on public.strava_activities(user_id);
 -- Los tokens son accesibles SOLO a través de Edge Functions con service_role.
