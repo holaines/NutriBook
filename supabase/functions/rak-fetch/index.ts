@@ -118,19 +118,6 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function parseFrenchDate(text: string): string | null {
-  const months: Record<string, string> = {
-    janvier: "01", "f\u00e9vrier": "02", mars: "03", avril: "04",
-    mai: "05", juin: "06", juillet: "07", ao\u00fbt: "08",
-    septembre: "09", octobre: "10", novembre: "11", "d\u00e9cembre": "12",
-  };
-  const m = text.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/i);
-  if (!m) return null;
-  const month = months[m[2].toLowerCase()];
-  if (!month) return null;
-  return `${m[3]}-${month}-${m[1].padStart(2, "0")}`;
-}
-
 function decodeHtmlEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")
@@ -142,79 +129,80 @@ function decodeHtmlEntities(s: string): string {
     .trim();
 }
 
+// Parse DD/MM/YYYY -> YYYY-MM-DD
+function parseDMY(s: string): string | null {
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
 function parseRAKHtml(html: string): DishEntry[] {
   const dishes: DishEntry[] = [];
   const seen = new Set<string>();
 
-  let currentDate = todayISO();
-  let currentService = "dejeuner";
-  let currentMenuType = "rampe";
-  let currentCategory: string | null = null;
+  // 1. Build day -> ISO date map from headings like:
+  //    "Menu du lundi : 05/10/2026"
+  const dateMap: Record<string, string> = {};
+  for (const m of html.matchAll(/Menu du (\w+)\s*:\s*(\d{2}\/\d{2}\/\d{4})/gi)) {
+    const iso = parseDMY(m[2]);
+    if (iso) dateMap[m[1].toLowerCase()] = iso;
+  }
 
-  // Normalise HTML: split into pseudo-lines on tag boundaries for easier scanning
-  const lines = html
-    .replace(/>\s*</g, ">\n<")
-    .replace(/\r/g, "")
-    .split("\n");
+  // 2. Find every plat.php link (href is UNQUOTED in the RAK HTML):
+  //    <a href=./plat.php?id_plat=4694 >
+  //      <font color="black">Calamars à la romaine</font>
+  //    </a>
+  const linkRe = /href=\.\/plat\.php\?id_plat=(\d+)[^>]*>([\s\S]*?)<\/a>/gi;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+  for (const match of html.matchAll(linkRe)) {
+    const dishId = parseInt(match[1], 10);
+    const rawContent = match[2];
 
-    // Detect date (French format: "Lundi 13 octobre 2025")
-    const dateMatch = line.match(
-      /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2}\s+\w+\s+\d{4})/i
+    // Dish name: prefer text inside <font>, else strip all tags
+    const fontM = rawContent.match(/<font[^>]*>([^<]+)<\/font>/i);
+    const dishName = decodeHtmlEntities(
+      fontM ? fontM[1] : rawContent.replace(/<[^>]+>/g, " ").trim()
     );
-    if (dateMatch) {
-      const parsed = parseFrenchDate(dateMatch[1]);
-      if (parsed) currentDate = parsed;
+    if (!dishName) continue;
+
+    // 3. Recover context from the NEAREST PRECEDING modal ID:
+    //    id="rampe_lundi_dejeuner_entree_chaude"
+    const before = html.slice(Math.max(0, match.index! - 4000), match.index!);
+    const modalMatches = [
+      ...before.matchAll(
+        /id="((rampe|cafeteria)_(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)_(dejeuner|diner)_(\w+))"\s+class="modal/gi
+      ),
+    ];
+    const lastModal = modalMatches[modalMatches.length - 1];
+
+    let menuType = "rampe";
+    let day = "";
+    let service = "dejeuner";
+    let category: string | null = null;
+
+    if (lastModal) {
+      const parts = lastModal[1].split("_");
+      menuType = parts[0];                   // rampe | cafeteria
+      day      = parts[1];                   // lundi | mardi | …
+      service  = parts[2];                   // dejeuner | diner
+      category = parts.slice(3).join("_") || null;
     }
 
-    // Detect service
-    if (/d[eé]jeuner/i.test(line) && !/diner|d[iî]ner/i.test(line)) {
-      currentService = "dejeuner";
-    } else if (/d[iî]ner/i.test(line)) {
-      currentService = "diner";
-    }
+    const menuDate = (day && dateMap[day]) ? dateMap[day] : todayISO();
 
-    // Detect menu type
-    if (/\brampe\b/i.test(line)) currentMenuType = "rampe";
-    else if (/caf[eé]t[eé]ria/i.test(line)) currentMenuType = "cafeteria";
+    const key = `${menuDate}|${service}|${menuType}|${dishId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-    // Detect dish category
-    if (/entr[eé]e\s*chaude/i.test(line)) currentCategory = "entree_chaude";
-    else if (/entr[eé]e\s*froide/i.test(line)) currentCategory = "entree_froide";
-    else if (/plat\s*principal|plat\s*1\b/i.test(line)) currentCategory = "plat1";
-    else if (/plat\s*2\b/i.test(line)) currentCategory = "plat2";
-    else if (/accompagnement\s*1\b/i.test(line)) currentCategory = "accompagnement1";
-    else if (/accompagnement\s*2\b/i.test(line)) currentCategory = "accompagnement2";
-    else if (/dessert/i.test(line)) currentCategory = "dessert";
-    else if (/fromage/i.test(line)) currentCategory = "fromage";
-    else if (/p[aâ]tisserie|viennoiserie/i.test(line)) currentCategory = "patisserie";
-
-    // Match dish links: <a href="./plat.php?id_plat=123">Dish Name</a>
-    const dishMatch = line.match(
-      /<a[^>]+href=["'](?:\.\/)?plat\.php\?id_plat=(\d+)["'][^>]*>([^<]+)<\/a>/i
-    );
-    if (dishMatch) {
-      const dishId = parseInt(dishMatch[1], 10);
-      const dishName = decodeHtmlEntities(dishMatch[2]);
-      if (!dishName) continue;
-
-      const key = `${currentDate}|${currentService}|${currentMenuType}|${dishId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      dishes.push({
-        menu_date: currentDate,
-        service: currentService,
-        menu_type: currentMenuType,
-        dish_id: dishId,
-        dish_name: dishName,
-        dish_category: currentCategory,
-        allergen_raw: null,
-      });
-    }
+    dishes.push({
+      menu_date: menuDate,
+      service,
+      menu_type: menuType,
+      dish_id: dishId,
+      dish_name: dishName,
+      dish_category: category,
+      allergen_raw: null,
+    });
   }
 
   return dishes;
