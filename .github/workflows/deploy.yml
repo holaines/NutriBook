@@ -25,7 +25,12 @@ jobs:
       - name: Create rak_menus table (idempotent)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db execute --project-ref cyewzqlkjbvsllotaywu -f rak.sql
+        run: |
+          curl --fail -X POST \
+            "https://api.supabase.com/v1/projects/cyewzqlkjbvsllotaywu/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -Rs '{query: .}' < rak.sql)"
 
       - name: Deploy rak-fetch Edge Function
         env:
