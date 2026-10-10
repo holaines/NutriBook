@@ -146,7 +146,7 @@ function rakDayHTML(date, service) {
       '</div>';
   }
 
-  const best = RAK.getBestGlutenFreeOption(date, service);
+  const best = RAK.getBestGlutenFreeCombo(date, service);
   if (!best) {
     const hasAny = dishes.length > 0;
     return '<div class="rak-slot-inner rak-status-no-gf">' +
@@ -157,16 +157,18 @@ function rakDayHTML(date, service) {
   }
 
   const goal = RAK.ironGoal();
-  const ironOk = (Number(best.iron_mg_estimated) || 0) >= goal.meal;
+  const ironOk = (best.iron_total || 0) >= goal.meal;
   const statusClass = ironOk ? 'rak-status-good-iron' : 'rak-status-low-iron';
   const icon = ironOk ? '&#x2713;' : '!';
-  const ironText = best.iron_mg_estimated != null
-    ? (ironOk ? 'Bon apport (' + best.iron_mg_estimated + ' mg Fe)' : 'Apport faible (' + best.iron_mg_estimated + ' mg Fe)')
+  const platName = best.plat ? h(best.plat.dish_name) : '';
+  const accName = best.accompagnement ? ' + ' + h(best.accompagnement.dish_name) : '';
+  const ironText = best.iron_total > 0
+    ? (ironOk ? 'Bon apport (' + best.iron_total + ' mg Fe)' : 'Apport faible (' + best.iron_total + ' mg Fe)')
     : 'Fer non estim\u00e9';
 
   return '<div class="rak-slot-inner ' + statusClass + '">' +
     '<div class="rak-label">' + label + '</div>' +
-    '<div class="rak-indicator">' + icon + ' ' + h(best.dish_name) + '</div>' +
+    '<div class="rak-indicator">' + icon + ' ' + platName + accName + '</div>' +
     '<div class="rak-iron-note">' + ironText + '</div>' +
     '<div class="buttons">' +
     '<button class="btn" onclick="showRAKModal(\'' + date + '\',\'' + service + '\')">D\u00e9tails</button>' +
@@ -175,35 +177,57 @@ function rakDayHTML(date, service) {
     '</div>';
 }
 
+let _rakModalCombos = null;
+
 function showRAKModal(date, service) {
   if (typeof RAK === 'undefined') return;
+  const combos = RAK.getCombos(date, service);
   const dishes = RAK.getDay(date, service) || [];
   const label = service === 'dejeuner' ? 'RAK D\u00e9jeuner' : 'RAK D\u00eener';
   const consumed = RAK.getConsumed(date).find(function(x) { return x.service === service; });
   const gStatusLabel = { 'confirmed_gf': '&#x2713; Sans gluten', 'contains_gluten': '&#x2717; Contient gluten', 'unknown': '? Inconnu' };
   const ironConfLabel = { 'official': 'Officiel', 'estimated': 'Estim\u00e9', 'approximate': 'Approx.', 'insufficient': '?' };
+  _rakModalCombos = combos;
 
-  const dishList = dishes.length ? dishes.map(function(d) {
+  function dishLine(d) {
+    if (!d) return '';
     const gs = gStatusLabel[d.gluten_status] || '?';
-    const iron = d.iron_mg_estimated != null ? d.iron_mg_estimated + ' mg Fe (' + (ironConfLabel[d.iron_confidence] || '?') + ')' : 'Fer non estim\u00e9';
-    return '<div class="item"><div><b>' + h(d.dish_name) + '</b>' +
-      '<small>' + gs + ' &middot; ' + iron + '</small>' +
-      (d.gluten_reasoning ? '<small>' + h(d.gluten_reasoning) + '</small>' : '') +
-      '</div></div>';
-  }).join('') : '<p class="muted">Aucun plat disponible.</p>';
+    const iron = d.iron_mg_estimated != null ? d.iron_mg_estimated + ' mg (' + (ironConfLabel[d.iron_confidence] || '?') + ')' : '?';
+    return '<div style="margin-left:8px"><b>' + h(d.dish_name) + '</b> <small>' + gs + ' &middot; ' + iron + ' Fe</small>' +
+      (d.gluten_reasoning ? '<br><small style="opacity:.7">' + h(d.gluten_reasoning) + '</small>' : '') + '</div>';
+  }
 
-  const gfDishes = dishes.filter(function(d) { return d.gluten_status === 'confirmed_gf'; });
-  const lastFetch = RAK.getLastFetch();
-  const staleWarning = lastFetch ? '' : '<div class="notice">Menus potentiellement obs\u00e8les. Appuyez sur &#171;&nbsp;Actualiser RAK&nbsp;&#187;.</div>';
+  let body = '';
+  if (combos && combos.length) {
+    body = combos.map(function(combo, idx) {
+      const gs = gStatusLabel[combo.gluten_status] || '?';
+      const confirmBtn = (!consumed && combo.gluten_status === 'confirmed_gf')
+        ? '<button class="btn primary" onclick="confirmRAKCombo(\'' + date + '\',\'' + service + '\',' + idx + ')">J\'ai mang\u00e9 ce combo</button>'
+        : '';
+      return '<div class="item" style="flex-direction:column;align-items:flex-start">' +
+        '<b>Combo ' + combo.number + '</b> &middot; ' + gs + ' &middot; ' +
+        (combo.iron_total > 0 ? '<b>' + combo.iron_total + ' mg Fe total</b>' : 'Fer non estim\u00e9') +
+        (combo.plat ? dishLine(combo.plat) : '') +
+        (combo.accompagnement ? dishLine(combo.accompagnement) : '') +
+        (confirmBtn ? '<div class="buttons" style="margin-top:6px">' + confirmBtn + '</div>' : '') +
+        '</div>';
+    }).join('');
+  } else if (dishes.length) {
+    body = dishes.map(function(d) {
+      return '<div class="item"><div><b>' + h(d.dish_name) + '</b>' +
+        '<small>' + (gStatusLabel[d.gluten_status] || '?') + '</small></div></div>';
+    }).join('');
+  } else {
+    body = '<p class="muted">Aucun plat disponible.</p>';
+  }
+
+  const staleWarning = RAK.getLastFetch() ? '' : '<div class="notice">Menus potentiellement obsol\u00e8tes. Appuyez sur &#171;&nbsp;Actualiser RAK&nbsp;&#187;.</div>';
 
   showModal(
     '<div class="top"><h2>' + label + ' &middot; ' + h(date) + '</h2><button class="close" onclick="closeModal()">\u00d7</button></div>' +
     staleWarning +
     (consumed ? '<div class="notice">&#x2713; Repas confirm\u00e9 &middot; ' + consumed.iron_total_mg + ' mg Fe</div>' : '') +
-    '<div class="card">' + dishList + '</div>' +
-    (!consumed && gfDishes.length > 0
-      ? '<div class="buttons"><button class="btn primary" onclick="confirmRAKMeal(\'' + date + '\',\'' + service + '\')">J\'ai mang\u00e9 ce menu au RAK</button></div>'
-      : '') +
+    '<div class="card">' + body + '</div>' +
     '<div class="buttons"><button class="btn" onclick="closeModal()">Fermer</button></div>'
   );
 }
@@ -212,6 +236,15 @@ function confirmRAKMeal(date, service) {
   if (typeof RAK === 'undefined') return;
   const dishes = (RAK.getDay(date, service) || []).filter(function(d) { return d.gluten_status === 'confirmed_gf'; });
   RAK.confirmMeal(date, service, dishes);
+  closeModal();
+  renderMain();
+}
+
+function confirmRAKCombo(date, service, idx) {
+  if (typeof RAK === 'undefined') return;
+  var combos = _rakModalCombos;
+  if (\!combos || \!combos[idx]) return;
+  RAK.confirmMeal(date, service, combos[idx].dishes);
   closeModal();
   renderMain();
 }

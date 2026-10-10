@@ -47,15 +47,52 @@
     return Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null;
   }
 
-  // Meilleur plat sans gluten (fer max), ou null
-  function getBestGlutenFreeOption(date, service) {
+  // Regroupe les plats par combo : plat1+accompagnement1, plat2+accompagnement2, etc.
+  // Retourne [{number, plat, accompagnement, dishes, iron_total, gluten_status}] ou null
+  function getCombos(date, service) {
     const dishes = getDay(date, service);
-    if (!dishes || dishes.length === 0) return null;
-    const gf = dishes.filter(function (d) { return d.gluten_status === 'confirmed_gf'; });
-    if (gf.length === 0) return null;
-    return gf.slice().sort(function (a, b) {
-      return (Number(b.iron_mg_estimated) || 0) - (Number(a.iron_mg_estimated) || 0);
-    })[0];
+    if (!dishes) return null;
+
+    var numbers = [];
+    dishes.forEach(function (d) {
+      var m = (d.dish_category || '').match(/^(?:plat|accompagnement)(\d+)$/);
+      if (m && numbers.indexOf(m[1]) === -1) numbers.push(m[1]);
+    });
+    numbers.sort();
+
+    var combos = numbers.map(function (n) {
+      var plat = dishes.find(function (d) { return d.dish_category === 'plat' + n; }) || null;
+      var acc  = dishes.find(function (d) { return d.dish_category === 'accompagnement' + n; }) || null;
+      var items = [plat, acc].filter(Boolean);
+      var iron = items.reduce(function (s, d) { return s + (Number(d.iron_mg_estimated) || 0); }, 0);
+      var hasGluten = items.some(function (d) { return d.gluten_status === 'contains_gluten'; });
+      var allGF = items.length > 0 && items.every(function (d) { return d.gluten_status === 'confirmed_gf'; });
+      return {
+        number: n,
+        plat: plat,
+        accompagnement: acc,
+        dishes: items,
+        iron_total: Math.round(iron * 10) / 10,
+        gluten_status: hasGluten ? 'contains_gluten' : (allGF ? 'confirmed_gf' : 'unknown')
+      };
+    });
+
+    return combos.length ? combos : null;
+  }
+
+  // Meilleur combo sans gluten (fer max), ou null
+  function getBestGlutenFreeCombo(date, service) {
+    var combos = getCombos(date, service);
+    if (!combos) return null;
+    var gf = combos.filter(function (c) { return c.gluten_status === 'confirmed_gf'; });
+    if (!gf.length) return null;
+    return gf.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
+  }
+
+  // Meilleur plat sans gluten (fer max), ou null — conservé pour compatibilité
+  function getBestGlutenFreeOption(date, service) {
+    var combo = getBestGlutenFreeCombo(date, service);
+    return combo ? (combo.plat || combo.dishes[0] || null) : null;
   }
 
   // Appelle la Edge Function pour scraper + analyser le RAK, puis vide le cache
@@ -142,6 +179,8 @@
   window.RAK = {
     loadWeek: loadWeek,
     getDay: getDay,
+    getCombos: getCombos,
+    getBestGlutenFreeCombo: getBestGlutenFreeCombo,
     getBestGlutenFreeOption: getBestGlutenFreeOption,
     refresh: refresh,
     confirmMeal: confirmMeal,
