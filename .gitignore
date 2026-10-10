@@ -1,2 +1,2 @@
-# Claves API y configuración privada
-config.js
+# Fichiers locaux à ne pas versionner
+.DS_Store

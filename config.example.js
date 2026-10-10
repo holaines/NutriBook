@@ -1,13 +1,7 @@
-// Copie ce fichier en config.js et remplaza les valores.
-// NUNCA subas config.js a GitHub — las claves deben ser privadas.
+// Copie ce fichier en config.js et remplaza los valores.
+// NUNCA subas config.js a GitHub — la clave Gemini debe ser privada.
+// Las credenciales de Supabase van en supabase-config.js (ese sí se sube).
 
-window.NUTRIBOOK_SUPABASE = {
-  url: "https://TU_PROYECTO.supabase.co",
-  key: "TU_CLAVE_ANON_PUBLICA"
-};
-
-// Clave para el cálculo de hierro con IA.
-// geminiKey: clave gratuita en https://aistudio.google.com/apikey
 window.NUTRIBOOK_IRON_CONFIG = {
-  geminiKey: ''  // Clave gratuita de Google AI Studio
+  geminiKey: ''  // Clave gratuita en https://aistudio.google.com/apikey
 };
