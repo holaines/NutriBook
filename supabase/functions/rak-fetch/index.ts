@@ -38,20 +38,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Analyse Gemini pour tous les plats uniques
-    const uniqueNames = [...new Set(dishes.map((d) => d.dish_name))];
-    const geminiResults = await analyzeWithGemini(uniqueNames, geminiKey);
+    // Récupérer les plats déjà analysés en DB pour ne pas rappeler Gemini
+    const allDishIds = dishes.map((d) => d.dish_id);
+    const { data: existing } = await admin
+      .from("rak_menus")
+      .select("dish_id, dish_name, gluten_status, gluten_source, gluten_reasoning, iron_mg_estimated, iron_confidence, iron_notes")
+      .in("dish_id", allDishIds);
+
+    const existingMap: Record<number, typeof existing[0]> = {};
+    for (const row of existing ?? []) existingMap[row.dish_id] = row;
+
+    // Gemini uniquement pour les plats jamais analysés
+    const newNames = [...new Set(
+      dishes.filter((d) => !existingMap[d.dish_id]).map((d) => d.dish_name)
+    )];
+    const geminiResults = newNames.length > 0
+      ? await analyzeWithGemini(newNames, geminiKey)
+      : {};
 
     // Construction des records a upsert
     const records = dishes.map((dish) => {
-      const a = geminiResults[dish.dish_name] ?? {
+      // Priorité : résultat Gemini frais > données déjà en DB > fallback
+      const cached = existingMap[dish.dish_id];
+      const a = geminiResults[dish.dish_name] ?? (cached ? {
+        gluten_status: cached.gluten_status,
+        gluten_source: cached.gluten_source,
+        gluten_reasoning: cached.gluten_reasoning,
+        iron_mg_estimated: cached.iron_mg_estimated,
+        iron_confidence: cached.iron_confidence,
+        iron_notes: cached.iron_notes,
+      } : {
         gluten_status: "unknown",
         gluten_source: "ai_analysis",
         gluten_reasoning: "Analyse non disponible",
         iron_mg_estimated: null,
         iron_confidence: "insufficient",
         iron_notes: null,
-      };
+      });
       return {
         menu_date: dish.menu_date,
         service: dish.service,
