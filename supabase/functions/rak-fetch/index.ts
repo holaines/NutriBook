@@ -249,9 +249,12 @@ async function analyzeWithGemini(
   return results;
 }
 
+function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
 async function analyzeGeminiBatch(
   dishNames: string[],
-  geminiKey: string
+  geminiKey: string,
+  attempt = 0
 ): Promise<Record<string, GeminiAnalysis>> {
   const dishList = dishNames.map((name, idx) => `${idx + 1}. ${name}`).join("\n");
 
@@ -312,6 +315,13 @@ Règles:
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       const msg = (err as { error?: { message?: string } })?.error?.message ?? `HTTP ${res.status}`;
+      // Retry on 429 / 503 / overload with exponential backoff (max 3 attempts)
+      if ((res.status === 429 || res.status === 503 || res.status === 529) && attempt < 3) {
+        const delay = (attempt + 1) * 4000; // 4s, 8s, 12s
+        console.warn(`Gemini overloaded (${res.status}), retry in ${delay}ms…`);
+        await sleep(delay);
+        return analyzeGeminiBatch(dishNames, geminiKey, attempt + 1);
+      }
       console.error("Gemini error:", msg);
       return fallback("Erreur Gemini: " + msg);
     }
