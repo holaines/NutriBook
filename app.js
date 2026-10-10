@@ -243,7 +243,7 @@ function confirmRAKMeal(date, service) {
 function confirmRAKCombo(date, service, idx) {
   if (typeof RAK === 'undefined') return;
   var combos = _rakModalCombos;
-  if (\!combos || \!combos[idx]) return;
+  if (!combos || !combos[idx]) return;
   RAK.confirmMeal(date, service, combos[idx].dishes);
   closeModal();
   renderMain();
