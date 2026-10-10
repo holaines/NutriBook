@@ -21,7 +21,8 @@ jobs:
       - name: Inject Gemini key
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-        run: sed -i "s|geminiKey: ''|geminiKey: '$GEMINI_KEY'|" supabase-config.js
+        run: |
+          sed -i "s|geminiKey: ''|geminiKey: '${GEMINI_KEY}'|" supabase-config.js
 
       - uses: actions/configure-pages@v4
 
