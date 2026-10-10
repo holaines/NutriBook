@@ -48,12 +48,17 @@ Deno.serve(async (req) => {
     const existingMap: Record<number, typeof existing[0]> = {};
     for (const row of existing ?? []) existingMap[row.dish_id] = row;
 
-    // Gemini uniquement pour les plats jamais analysés
-    const newNames = [...new Set(
-      dishes.filter((d) => !existingMap[d.dish_id]).map((d) => d.dish_name)
+    // Gemini pour : nouveaux plats OU plats avec analyse ratée (unknown + insufficient)
+    const needsAnalysis = [...new Set(
+      dishes
+        .filter((d) => {
+          const c = existingMap[d.dish_id];
+          return !c || (c.gluten_status === "unknown" && c.iron_confidence === "insufficient");
+        })
+        .map((d) => d.dish_name)
     )];
-    const geminiResults = newNames.length > 0
-      ? await analyzeWithGemini(newNames, geminiKey)
+    const geminiResults = needsAnalysis.length > 0
+      ? await analyzeWithGemini(needsAnalysis, geminiKey)
       : {};
 
     // Construction des records a upsert
@@ -239,14 +244,7 @@ async function analyzeWithGemini(
   dishNames: string[],
   geminiKey: string
 ): Promise<Record<string, GeminiAnalysis>> {
-  const results: Record<string, GeminiAnalysis> = {};
-  const batchSize = 15;
-  for (let i = 0; i < dishNames.length; i += batchSize) {
-    const batch = dishNames.slice(i, i + batchSize);
-    const batchResults = await analyzeGeminiBatch(batch, geminiKey);
-    Object.assign(results, batchResults);
-  }
-  return results;
+  return analyzeGeminiBatch(dishNames, geminiKey);
 }
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
