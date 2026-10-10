@@ -59,7 +59,8 @@
   }
 
   // Appelle la Edge Function pour scraper + analyser le RAK, puis vide le cache
-  async function refresh() {
+  // weekStart : date ISO du lundi de la semaine visible (ex: "2026-10-12")
+  async function refresh(weekStart) {
     const client = getClient();
     const cfg = window.NUTRIBOOK_SUPABASE;
     if (!client || !cfg?.url) throw new Error('Supabase non configuré');
@@ -73,7 +74,7 @@
     const res = await fetch(cfg.url + '/functions/v1/rak-fetch', {
       method: 'POST',
       headers,
-      body: '{}',
+      body: JSON.stringify({ weekStart: weekStart || null }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Erreur Edge Function rak-fetch');

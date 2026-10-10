@@ -239,7 +239,7 @@ async function refreshRAK(btn) {
   btn.disabled = true;
   btn.textContent = 'Actualisation\u2026';
   try {
-    const result = await RAK.refresh();
+    const result = await RAK.refresh(weekStart());
     rakLoadedOffset = null; // Force re-fetch on next initRAKCalendar
     renderMain();
     alert('RAK mis \u00e0 jour : ' + result.menus_fetched + ' plats r\u00e9cup\u00e9r\u00e9s.');

@@ -23,12 +23,10 @@ Deno.serve(async (req) => {
     const geminiKey = Deno.env.get("GEMINI_KEY");
     if (!geminiKey) throw new Error("GEMINI_KEY secret not configured");
 
-    // Fetch RAK menu page
-    const rakRes = await fetch("https://services.imt-atlantique.fr/rak/pagemenu.php", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; NutriBook/1.0)" },
-    });
-    if (!rakRes.ok) throw new Error(`RAK fetch failed: ${rakRes.status}`);
-    const html = await rakRes.text();
+    const body = await req.json().catch(() => ({})) as { weekStart?: string };
+    const weekStart = body.weekStart ?? null;
+
+    const html = await fetchRAKPage(weekStart);
 
     const dishes = parseRAKHtml(html);
     if (dishes.length === 0) {
@@ -136,6 +134,59 @@ interface GeminiAnalysis {
   iron_mg_estimated: number | null;
   iron_confidence: string;
   iron_notes: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Navigation RAK
+// ---------------------------------------------------------------------------
+
+async function fetchRAKPage(weekStart: string | null): Promise<string> {
+  const base = "https://services.imt-atlantique.fr/rak/pagemenu.php";
+  const headers = { "User-Agent": "Mozilla/5.0 (compatible; NutriBook/1.0)" };
+
+  const fetchPage = async (url: string) => {
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`RAK fetch failed: ${res.status}`);
+    return res.text();
+  };
+
+  let html = await fetchPage(base);
+  if (!weekStart) return html;
+
+  // Navigue vers la semaine demandée en suivant les liens prev/next du RAK
+  // Les inputs hidden "semaine" encodent le timestamp de la semaine précédente et suivante
+  for (let i = 0; i < 6; i++) {
+    const pageDates = extractPageDates(html);
+    if (!pageDates.length) break;
+
+    const pageMonday = pageDates.sort()[0]; // date la plus ancienne = lundi
+    if (pageMonday === weekStart) return html; // bonne semaine
+
+    const goNext = weekStart > pageMonday;
+    const semaine = extractNavSemaine(html, goNext);
+    if (!semaine) break;
+
+    html = await fetchPage(`${base}?semaine=${semaine}`);
+  }
+
+  return html;
+}
+
+// Extrait toutes les dates ISO trouvées dans les titres de jour
+function extractPageDates(html: string): string[] {
+  const dates: string[] = [];
+  for (const m of html.matchAll(/Menu du \w+\s*:\s*(\d{2})\/(\d{2})\/(\d{4})/gi)) {
+    const iso = parseDMY(`${m[1]}/${m[2]}/${m[3]}`);
+    if (iso) dates.push(iso);
+  }
+  return dates;
+}
+
+// Extrait la valeur semaine du lien de navigation (prev ou next)
+function extractNavSemaine(html: string, next: boolean): string | null {
+  const matches = [...html.matchAll(/name="semaine"\s+value=(\d+)/g)];
+  if (!matches.length) return null;
+  return next ? matches[matches.length - 1][1] : matches[0][1];
 }
 
 // ---------------------------------------------------------------------------
