@@ -67,7 +67,7 @@ async function calculateIronLLM(id,silent=false){
   const r=state.recipes.find(x=>x.id===id);
   if(!r)return;
   const key=window.NUTRIBOOK_IRON_CONFIG?.geminiKey;
-  if(!key){if(!silent)alert('Configura geminiKey en config.js (clave gratuita en aistudio.google.com/apikey)');return;}
+  if(!key){if(!silent)alert('Clave Gemini no configurada. Contacta al administrador.');return;}
   const btn=document.getElementById('iron-llm-btn');
   if(btn){btn.disabled=true;btn.textContent='Calculando\u2026';}
   const ingredients=(r.ingredients||[]).map(i=>`- ${i.quantity!=null?i.quantity+' '+i.unit+' ':''}${i.name}`).join('\n');
