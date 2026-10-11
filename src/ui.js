@@ -30,8 +30,8 @@ function ironRing(di) {
   const e = Math.min(di.eaten / g, 1) * C, t = Math.min(di.total / g, 1) * C;
   return `<svg class="ring ${di.level}" viewBox="0 0 140 140" role="img" aria-label="${fmtMg(di.eaten)} de ${g} mg de hierro comidos hoy">
     <circle class="ring-bg" cx="70" cy="70" r="${R}"/>
-    <circle class="ring-plan" cx="70" cy="70" r="${R}" stroke-dasharray="${t} ${C}" transform="rotate(-90 70 70)"/>
-    <circle class="ring-eaten" cx="70" cy="70" r="${R}" stroke-dasharray="${e} ${C}" transform="rotate(-90 70 70)"/>
+    ${t > 0 ? `<circle class="ring-plan" cx="70" cy="70" r="${R}" stroke-dasharray="${t} ${C}" transform="rotate(-90 70 70)"/>` : ''}
+    ${e > 0 ? `<circle class="ring-eaten" cx="70" cy="70" r="${R}" stroke-dasharray="${e} ${C}" transform="rotate(-90 70 70)"/>` : ''}
     <text x="70" y="64" class="ring-num">${fmtMg(di.eaten)}</text><text x="70" y="90" class="ring-sub">de ${g} mg</text></svg>`;
 }
 
@@ -102,7 +102,7 @@ function renderMain() {
 function render() {
   const app = document.getElementById('app');
   if (authLoading) {
-    app.innerHTML = '<div class="auth-splash"><div class="logo">Nutri<span>Book</span> 🌿</div><p>Iniciando…</p></div>';
+    app.innerHTML = '<div class="auth-splash" role="status" aria-live="polite"><div class="logo">Nutri<span>Book</span> 🌿</div><div class="skeleton-card"><i class="sk w60"></i><i class="sk w90"></i><i class="sk w40"></i></div><p class="sr">Iniciando…</p></div>';
     return;
   }
   const y = window.scrollY;
@@ -122,11 +122,15 @@ function afterRender() {
   else if (page === 'Inicio') ensureRak(weekStart(0));
 }
 
+let modalOpener = null;   // elemento que abrió la ventana: recupera el foco al cerrarla
 function showModal(markup) {
+  if (!modal) modalOpener = document.activeElement;
   modal = markup;
   const root = $('#modal-root');
   if (!root) return;
-  root.innerHTML = `<div class="modal-bg" ${on('click', 'closeModal', '@event')}><div class="modal" role="dialog" aria-modal="true">${markup}</div></div>`;
+  root.innerHTML = `<div class="modal-bg" ${on('click', 'closeModal', '@event')}><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">${markup}</div></div>`;
+  root.querySelector('.modal h2')?.setAttribute('id', 'modal-title');
+  document.querySelector('.app')?.setAttribute('aria-hidden', 'true');
   document.body.classList.add('modal-open');
   root.querySelector('input:not([type=hidden]):not([type=file]),select,textarea')?.focus({ preventScroll: true });
 }
@@ -136,5 +140,8 @@ function closeModal(ev) {
   const root = $('#modal-root');
   if (root) root.innerHTML = '';
   document.body.classList.remove('modal-open');
+  document.querySelector('.app')?.removeAttribute('aria-hidden');
+  if (modalOpener?.isConnected) modalOpener.focus({ preventScroll: true });
+  modalOpener = null;
 }
 const modalTop = (title, sub = '') => `<div class="top"><div>${sub}<h2>${title}</h2></div><button class="close" ${on('click', 'closeModal')} aria-label="Cerrar">×</button></div>`;

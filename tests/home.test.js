@@ -58,3 +58,12 @@ test('Inicio: sin sesión/sin datos no rompe y mantiene el aviso de sincronizaci
   assert.match(app.text(), /solo en este navegador/);
   assert.deepEqual(app.errors, []);
 });
+
+test('Inicio: «Hoy en tu menú» refleja lo registrado a mano en esa comida', async () => {
+  const app = await loadApp({ now: '2026-10-20T13:00:00', data: { consumed: [{ id: 'a', date: '2026-10-20', meal: 'Desayuno', name: 'Avena con kiwi', iron: 2.1 }, { id: 'b', date: '2026-10-20', meal: 'Desayuno', name: 'Café', iron: 0 }] } });
+  const row = [...app.w.document.querySelectorAll('.meal-row')].find((r) => /Desayuno/i.test(r.textContent));
+  assert.match(row.textContent, /Avena con kiwi, Café/);
+  assert.match(row.textContent, /2,1 mg Fe/); assert.match(row.textContent, /✓ Registrado/);
+  assert.match(row.className, /is-eaten/);
+  assert.doesNotMatch(row.textContent, /Planificar/);
+});

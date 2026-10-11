@@ -11,6 +11,14 @@ window.addEventListener('hashchange', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && modal) closeModal();
+  if (e.key === 'Tab' && modal) {   // el foco no sale de la ventana abierta
+    const items = [...document.querySelectorAll('#modal-root .modal button:not([disabled]), #modal-root .modal input:not([type=hidden]):not([disabled]), #modal-root .modal select:not([disabled]), #modal-root .modal textarea:not([disabled]), #modal-root .modal a[href]')].filter((x) => x.offsetParent !== null || x.getClientRects().length);
+    if (!items.length) { e.preventDefault(); return; }
+    const first = items[0], last = items[items.length - 1], cur = document.activeElement;
+    if (!document.querySelector('#modal-root .modal')?.contains(cur)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+  }
   // «n» abre el registro rápido (si no se está escribiendo y no hay otra ventana abierta)
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable;
   if (e.key === 'n' && !typing && !modal && !e.ctrlKey && !e.metaKey && !e.altKey && !authLoading) { e.preventDefault(); openQuickAdd(); }

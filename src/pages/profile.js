@@ -20,6 +20,9 @@ function profile() {
     ${field('Objetivo de hierro por comida (mg)', `<input name="ironMealGoal" type="number" min="1" step="0.5" value="${Number(p.ironMealGoal) || 5}">`)}
     ${field('Preferencias, alergias y notas', `<textarea name="notes">${h(p.notes)}</textarea>`, 'wide')}</div>
     <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar perfil</button><button class="btn" type="button" ${on('click', 'openOnboarding', 1)}>Calcular mi objetivo recomendado</button></div></form></div>
+  <div class="section-head"><h2>Apariencia</h2></div>
+  <div class="card"><div class="seg" role="radiogroup" aria-label="Tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([v, l]) => `<button role="radio" aria-checked="${NBTheme.get() === v}" class="${NBTheme.get() === v ? 'on' : ''}" ${on('click', 'setTheme', v)}>${l}</button>`).join('')}</div>
+    <p class="small muted">Se recuerda solo en este dispositivo. «Automático» sigue el modo de tu sistema.</p></div>
   <div class="section-head"><h2>Mis datos</h2></div>
   <div class="card"><p class="muted">${window.NutriCloud?.getUser?.() ? 'Tus datos se guardan en este navegador y en tu cuenta (sincronización activa).' : 'Tus datos se guardan solo en este navegador. Inicia sesión arriba para sincronizarlos.'} Exporta copias de vez en cuando.</p>
     <div class="buttons"><button class="btn primary" ${on('click', 'exportData')}>↓ Exportar copia JSON</button><button class="btn" ${on('click', 'pickImport')}>↑ Importar copia JSON</button><button class="btn danger" ${on('click', 'clearAll')}>Eliminar todos mis datos</button>
@@ -51,3 +54,4 @@ function clearAll() {
   if (!confirm('¿Eliminar TODAS las recetas, el calendario y la despensa de este navegador?')) return;
   state = DEFAULTS(); save(); render();
 }
+function setTheme(v) { NBTheme.set(v); renderMain(); }

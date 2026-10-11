@@ -51,8 +51,12 @@ function home() {
     const k = d + '|' + m, r = recipe(state.plan[k]), done = eatenFor(k), svc = RAK_SERVICE[m];
     const rakEaten = svc && rakOf(d).find((e) => e.service === svc);
     const best = svc && !rakEaten && window.RAK ? RAK.getBestGlutenFreeCombo(d, svc) : null;
+    const manual = foodFor(d).filter((x) => x.meal === m && !x.supplement && !x.planKey && !(x.recipeId && done));
     let body;
-    if (rakEaten) body = `<span class="meal-name">🍽 RAK</span><span class="fe good">${fmtMg(rakEaten.iron_total_mg)} mg Fe</span><span class="meal-state">✓ Comido</span>`;
+    if (manual.length && !r && !rakEaten) {
+      const mg = manual.reduce((n, x) => n + (ironVal(x.iron) ?? 0), 0), known = manual.some((x) => ironVal(x.iron) !== null);
+      body = `<span class="meal-name">${manual.map((x) => h(x.name)).join(', ')}</span><span class="fe ${known ? ironLevel(mg, goalMeal()) : ''}">${known ? fmtMg(mg) + ' mg Fe' : 'Fe ?'}</span><span class="meal-state">✓ Registrado</span>`;
+    } else if (rakEaten) body = `<span class="meal-name">🍽 RAK</span><span class="fe good">${fmtMg(rakEaten.iron_total_mg)} mg Fe</span><span class="meal-state">✓ Comido</span>`;
     else if (r) {
       const fe = ironVal(r.iron);
       body = `<button class="link meal-name" ${on('click', 'viewRecipe', r.id)}>${h(r.emoji || '')} ${h(r.name)}</button>
@@ -63,7 +67,7 @@ function home() {
         <span class="fe ${best.iron_known ? ironLevel(best.iron_total, goalMeal()) : ''}">${best.iron_known ? fmtMg(best.iron_total) + ' mg Fe' : 'Fe ?'}</span>
         <button class="btn mini" ${on('click', 'showRAKModal', d, svc)}>Ver menú</button>`;
     } else body = `<button class="link muted" ${on('click', 'openPlan', '', d, m)}>+ Planificar</button>`;
-    return `<div class="meal-row ${done || rakEaten ? 'is-eaten' : ''}"><span class="meal-label">${m}</span>${body}</div>`;
+    return `<div class="meal-row ${done || rakEaten || (manual.length && !r) ? 'is-eaten' : ''}"><span class="meal-label">${m}</span>${body}</div>`;
   }).join('');
 
   return pageHeader(`${hello}${state.profile.name ? ', ' + h(state.profile.name) : ''}`, fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }),
