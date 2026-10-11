@@ -4,6 +4,41 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Inicio
 // ═══════════════════════════════════════════════════════════════════════════
+/** ¿Ya está registrada esta comida de hoy (receta marcada, RAK confirmado o comida anotada)? */
+function mealDone(d, m) {
+  const svc = RAK_SERVICE[m];
+  return Boolean(eatenFor(d + '|' + m) || (svc && rakOf(d).some((e) => e.service === svc)) || foodFor(d).some((x) => x.meal === m && !x.supplement));
+}
+/** Próxima comida pendiente de hoy a partir de la hora actual, o null si ya no queda ninguna. */
+function nextMealSlot(d = today()) {
+  for (let i = MEALS.indexOf(defaultMeal()); i < MEALS.length; i++) if (!mealDone(d, MEALS[i])) return MEALS[i];
+  return null;
+}
+
+/** Tarjeta principal de Inicio: qué toca comer ahora y cuánto hierro aporta. */
+function nextMealCard(d, di) {
+  const m = nextMealSlot(d), missing = Math.max(0, di.goal - di.total);
+  if (!m) return `<div class="card hero ok"><div class="eyebrow">Hoy</div><h2>✓ Has registrado todas las comidas de hoy</h2>
+    <p class="muted">${di.eaten >= di.goal ? '¡Objetivo de hierro cubierto!' : `Llevas ${fmtMg(di.eaten)} de ${fmtMg(di.goal)} mg de hierro.`}</p>
+    <div class="buttons"><button class="btn" ${on('click', 'openQuickAdd', d)}>+ Añadir algo más</button></div></div>`;
+  const k = d + '|' + m, r = recipe(state.plan[k]), svc = RAK_SERVICE[m], best = svc && window.RAK ? RAK.getBestGlutenFreeCombo(d, svc) : null;
+  let title, mg = null, actions;
+  if (r) {
+    title = `${h(r.emoji || '')} ${h(r.name)}`; mg = ironVal(r.iron);
+    actions = `<button class="btn primary" ${on('click', 'toggleEaten', k)}>✓ Comido</button><button class="btn" ${on('click', 'viewRecipe', r.id)}>Ver receta</button>`;
+  } else if (best) {
+    title = `🍽 RAK: ${h(best.plat?.dish_name || '')}${best.accompagnement ? ' + ' + h(best.accompagnement.dish_name) : ''}`; mg = best.iron_known ? best.iron_total : null;
+    actions = `<button class="btn primary" ${on('click', 'eatRAK', d, svc, best.number)}>✓ Lo he comido</button><button class="btn" ${on('click', 'showRAKModal', d, svc)}>Ver menú</button>`;
+  } else {
+    const idea = missing > 0 && window.RAK ? RAK.suggestRecipes()[0] : null;
+    title = 'Aún sin planificar';
+    actions = `${idea ? `<button class="btn primary" ${on('click', 'openPlan', idea.id, d, m)}>Planificar ${h(idea.name)} (${fmtMg(idea.iron)} mg)</button>` : `<button class="btn primary" ${on('click', 'openPlan', '', d, m)}>Planificar</button>`}<button class="btn" ${on('click', 'openQuickAdd', d, m)}>Registrar lo que comas</button>`;
+  }
+  return `<div class="card hero"><div class="eyebrow">Ahora toca · ${m}</div><h2>${title}</h2>
+    <p class="muted">${mg !== null ? `<b class="fe ${ironLevel(mg, goalMeal())}">${fmtMg(mg)} mg de hierro</b> · ` : ''}${missing > 0 ? `te faltan <b>${fmtMg(missing)} mg</b> hoy` : 'objetivo de hoy cubierto'}</p>
+    <div class="buttons">${actions}</div></div>`;
+}
+
 function home() {
   const d = today(), di = dayIron(d), hour = new Date().getHours();
   const hello = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -32,7 +67,8 @@ function home() {
   }).join('');
 
   return pageHeader(`${hello}${state.profile.name ? ', ' + h(state.profile.name) : ''}`, fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }),
-    `<button class="btn primary" ${on('click', 'openFoodForm', today())}>+ Registrar comida</button><button class="btn" ${on('click', 'openForm')}>+ Receta</button>`) +
+    `<button class="btn primary" ${on('click', 'openQuickAdd')}>+ Registrar comida</button><button class="btn" ${on('click', 'openForm')}>+ Receta</button>`) +
+  nextMealCard(d, di) +
   `<section class="today-grid">
     <div class="card iron-card"><div class="card-title">Hierro de hoy</div>
       <div class="iron-card-body">${ironRing(di)}

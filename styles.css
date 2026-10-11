@@ -340,3 +340,9 @@ body.modal-open .fab { display: none; }
 .qa-portions .btn { min-width: 40px; min-height: 40px; }
 .qa-added { margin-top: 10px; display: grid; gap: 4px; }
 .qa-flash { font-size: 13.5px; padding: 6px 10px; border-radius: 10px; background: #e9f4ec; }
+
+/* Inicio: tarjeta «ahora toca» */
+.hero { margin-bottom: 16px; border-left: 5px solid var(--rose); }
+.hero.ok { border-left-color: var(--good); }
+.hero h2 { margin: 2px 0 6px; font-size: 24px; }
+.hero .buttons { margin-top: 12px; }
