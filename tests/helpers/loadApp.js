@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fixture = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/rak_menus.json'), 'utf8'));
+export const APP_FILES = () => {
+  const idx = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  return [...idx.matchAll(/<script src="\.\/([^"]+)"/g)].map((m) => m[1]);
+};
 export const NOW = '2026-10-12T10:00:00'; // lunes; las fixtures RAK cubren 12-14 oct
 
 /** Carga la app en jsdom con Supabase/Cloud falsos y reloj fijo. */
@@ -38,7 +42,10 @@ export async function loadApp({ data, user = true, now = NOW } = {}) {
     getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',
     scheduleSave: (s) => saved.push(s), start: (o) => o.onReady(),
   };
-  for (const f of ['html.js', 'events.js', 'rak.js', 'app.js']) inject(fs.readFileSync(path.join(root, f), 'utf8'));
+  // mismos scripts y mismo orden que index.html (salvo config, CDN y cloud-sync, que se simulan)
+  const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const local = [...indexHtml.matchAll(/<script src="\.\/([^"]+)"/g)].map((m) => m[1]).filter((f) => !['supabase-config.js', 'cloud-sync.js'].includes(f));
+  for (const f of local) inject(fs.readFileSync(path.join(root, f), 'utf8'));
   await sleep(50);
 
   const app = {
