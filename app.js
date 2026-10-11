@@ -76,12 +76,25 @@ function toast(msg, kind = '', action) {
 // Estado
 // ═══════════════════════════════════════════════════════════════════════════
 const DEFAULTS = () => ({
+  schemaVersion: SCHEMA_VERSION,
   recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [],
   profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5 },
 });
+/** Migraciones del JSON guardado: MIGRATIONS[n] lleva los datos de la versión n-1 a la n. */
+const SCHEMA_VERSION = 1;
+const MIGRATIONS = {
+  1: (d) => { delete d.workouts; delete d.stravaCache; return d; },   // sección Deporte retirada
+};
+function migrate(d) {
+  d = { ...d };
+  for (let v = (Number(d.schemaVersion) || 0) + 1; v <= SCHEMA_VERSION; v++) d = MIGRATIONS[v](d);
+  d.schemaVersion = Math.max(Number(d.schemaVersion) || 0, SCHEMA_VERSION);
+  return d;
+}
 function hydrate(d) {
   const base = DEFAULTS();
-  return { ...base, ...(d || {}), profile: { ...base.profile, ...((d && d.profile) || {}) } };
+  d = migrate(d || {});
+  return { ...base, ...d, profile: { ...base.profile, ...(d.profile || {}) } };
 }
 function load() {
   try { return hydrate(JSON.parse(localStorage.getItem(KEY))); } catch { return DEFAULTS(); }

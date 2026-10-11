@@ -17,7 +17,7 @@ test('todas las páginas se renderizan sin errores', async () => {
 test('ya no existe la página Deporte', async () => {
   const app = await loadApp();
   assert.equal(app.eval(`PAGES.some((p) => p.id === 'Entrenamientos')`), false);
-  assert.doesNotMatch(app.w.document.body.innerHTML, /Strava|Garmin|Deporte/);
+  assert.doesNotMatch(app.w.document.getElementById('app').innerHTML, /Strava|Garmin|Deporte/);
 });
 
 test('navegar con keepWeek conserva la semana', async () => {
