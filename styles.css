@@ -320,3 +320,9 @@ textarea { min-height: 100px; resize: vertical; }
 .tips li { padding: 8px 10px; border-radius: 10px; background: #fbf4e3; }
 .tips li.warn { background: #fbe9e7; }
 .tips li.good { background: #e9f4ec; }
+
+.lab-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.lab-chart { width: 100%; height: auto; }
+.lab-line { fill: none; stroke: var(--rose); stroke-width: 2; }
+.lab-dot { fill: var(--rose); }
+.lab-last { font-size: 11px; fill: var(--ink); font-weight: 700; }

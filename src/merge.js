@@ -5,7 +5,7 @@
    elemento, gana la modificación más reciente. stamp(state) detecta qué cambió desde la última vez
    (comparando con una instantánea), de modo que el resto de la app no necesita saber nada de marcas. */
 (function () {
-  const COLLECTIONS = ['recipes', 'pantry', 'consumed', 'rakConsumed', 'supplements'];
+  const COLLECTIONS = ['recipes', 'pantry', 'consumed', 'rakConsumed', 'supplements', 'labs'];
   const MAPS = ['plan', 'checked'];            // clave -> valor, con marca por clave
   const TOMB_TTL = 90 * 864e5;                 // las tumbas se olvidan a los 90 días
   const json = (v) => JSON.stringify(v, (k, x) => (k === 'updatedAt' ? undefined : x));

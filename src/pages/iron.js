@@ -21,7 +21,8 @@ function equilibrium() {
     <div class="card"><div class="muted small">COMIDAS SIN DATO</div><div class="metric">${unknown}</div></div></div>
   ${weekAbsorbedNotice(dates, total)}
   <div class="section-head"><h2>Hierro por día</h2></div><div class="card">${ironChart(dates)}</div>
-  <div class="section-head"><h2>Complementos</h2></div>${supplementsCard()}
+  ${supplementsCard()}
+  ${labsCard()}
   <div class="section-head"><h2>Detalle</h2></div>
   <div class="day-list">${days.map((x) => dayDetail(x)).join('')}</div>
   ${todayTipsIn(dates)}<div class="notice">💡 La vitamina C (cítricos, pimiento, kiwi) ayuda a absorber el hierro vegetal; el té y el café junto a las comidas lo dificultan. El hierro ingerido no equivale al absorbido: esto no sustituye el seguimiento médico.</div>`;

@@ -75,17 +75,18 @@ function toast(msg, kind = '', action) {
 const DEFAULTS = () => ({
   schemaVersion: SCHEMA_VERSION,
   sync: { deleted: {}, stamps: {} },
-  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [], supplements: [],
+  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [], supplements: [], labs: [],
   profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5, sex: '', age: '', status: 'none', diet: 'omnivore', onboarded: false },
 });
 /** Migraciones del JSON guardado: MIGRATIONS[n] lleva los datos de la versión n-1 a la n. */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const MIGRATIONS = {
   1: (d) => { delete d.workouts; delete d.stravaCache; return d; },   // sección Deporte retirada
   2: (d) => ({ ...d, sync: { deleted: {}, stamps: {}, ...(d.sync || {}) } }),   // marcas para la sincronización por elemento
   // quien ya usa la app no vuelve a ver la bienvenida
   3: (d) => ({ ...d, profile: { ...(d.profile || {}), onboarded: Boolean((d.profile || {}).onboarded || (d.recipes || []).length || (d.consumed || []).length || (d.profile || {}).name) } }),
   4: (d) => ({ ...d, supplements: d.supplements || [] }),   // complementos de hierro
+  5: (d) => ({ ...d, labs: d.labs || [] }),   // análisis de sangre
 };
 function migrate(d) {
   d = { ...d };
