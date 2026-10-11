@@ -41,6 +41,7 @@ function home() {
           ${di.planned > 0 ? `<div><i class="lg plan"></i><b>${fmtMg(di.planned)} mg</b> previstos</div>` : ''}
           <div class="${missing > 0 ? 'need' : 'ok'}">${missing > 0 ? `Te faltan <b>${fmtMg(missing)} mg</b> para tu objetivo` : '✓ ¡Objetivo de hoy cubierto!'}</div>
           ${di.unknown ? `<small class="muted">${di.unknown} comida(s) sin dato de hierro</small>` : ''}</div></div>
+      ${tipsHtml(d)}
       ${ideas.length ? `<div class="ideas"><small class="muted">Ideas ricas en hierro:</small>${ideas.map((r) => `<button class="chip-btn" ${on('click', 'viewRecipe', r.id)}>${h(r.emoji || '')} ${h(r.name)} · ${fmtMg(r.iron)} mg</button>`).join('')}</div>` : ''}</div>
     <div class="card"><div class="card-title">Hoy en tu menú <button class="link" ${on('click', 'navigate', 'Calendario')}>Calendario →</button></div>${meals}</div>
   </section>

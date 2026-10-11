@@ -72,3 +72,47 @@ function weekAbsorbedNotice(dates, totalMg) {
   const low = Math.round(t.low * 10) / 10, high = Math.round(t.high * 10) / 10;
   return `<div class="notice">🧪 De los <b>${fmtMg(totalMg)} mg</b> ingeridos esta semana, se absorberían unos <b>${fmtMg(low)}–${fmtMg(high)} mg</b> (estimación). Combina el hierro vegetal con vitamina C y separa el café o el té de las comidas.</div>`;
 }
+
+/** Comidas de un día con su hierro: lo comido y lo planificado (si el día no ha pasado). */
+function mealGroups(date) {
+  const groups = {};
+  const add = (meal, it) => { (groups[meal] ||= []).push(it); };
+  for (const x of foodFor(date)) add(x.meal, { name: x.name, ...entryProfile(x), planned: false });
+  if (date >= today()) {
+    for (const m of MEALS) {
+      const k = date + '|' + m, r = recipe(state.plan[k]);
+      if (!r || eatenFor(k)) continue;
+      add(m, { name: r.name, mg: ironVal(r.iron) ?? 0, type: recipeIronType(r), vitc: hasVitC(recipeText(r) + ' ' + r.name), inhib: hasInhibitor(recipeText(r) + ' ' + r.name), planned: true });
+    }
+  }
+  return groups;
+}
+
+/** Consejos de absorción para un día: [{ kind: 'warn'|'tip'|'good', text }], los más útiles primero (máx. 3). */
+function absorptionTips(date) {
+  const out = [];
+  for (const meal of MEALS) {
+    const items = mealGroups(date)[meal];
+    if (!items) continue;
+    const iron = items.filter((i) => i.mg >= 1.5), mg = iron.reduce((n, i) => n + i.mg, 0);
+    const veg = iron.filter((i) => i.type === 'nonheme' || i.type === 'mixed');
+    const vitc = items.some((i) => i.vitc), inhib = items.some((i) => i.inhib);
+    const verb = items.every((i) => i.planned) ? 'llevará' : 'lleva';
+    if (!iron.length) continue;
+    const what = iron.length === 1 ? `«${iron[0].name}»` : `tu ${meal.toLowerCase()}`;
+    if (inhib) out.push({ kind: 'warn', text: `En tu ${meal.toLowerCase()} hay café, té, chocolate o lácteos junto a ${what} (${fmtMg(mg)} mg): sepáralos 1-2 horas para no frenar el hierro.` });
+    else if (veg.length && !vitc) out.push({ kind: 'tip', text: `Tu ${meal.toLowerCase()} ${verb} hierro de origen vegetal (${fmtMg(veg.reduce((n, i) => n + i.mg, 0))} mg). Añade un cítrico, pimiento o kiwi para absorberlo mejor.` });
+    else if (vitc) out.push({ kind: 'good', text: `✓ La vitamina C de tu ${meal.toLowerCase()} ayuda a absorber su hierro.` });
+  }
+  const order = { warn: 0, tip: 1, good: 2 };
+  return out.sort((a, b) => order[a.kind] - order[b.kind]).slice(0, 3);
+}
+function tipsHtml(date) {
+  const tips = absorptionTips(date);
+  if (!tips.length) return '';
+  const icon = { warn: '⚠️', tip: '💡', good: '' };
+  return `<ul class="tips">${tips.map((t) => `<li class="${t.kind}">${icon[t.kind]} ${h(t.text)}</li>`).join('')}</ul>`;
+}
+
+/** Consejos de hoy dentro de la semana mostrada (solo si hoy está en ella). */
+const todayTipsIn = (dates) => (dates.includes(today()) ? tipsHtml(today()) : '');

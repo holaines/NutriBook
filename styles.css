@@ -315,3 +315,8 @@ textarea { min-height: 100px; resize: vertical; }
 
 .abs-line { font-size: 13px; color: var(--ink-soft, #6b5560); margin-top: 2px; }
 .abs-line b { color: var(--ink); }
+
+.tips { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.tips li { padding: 8px 10px; border-radius: 10px; background: #fbf4e3; }
+.tips li.warn { background: #fbe9e7; }
+.tips li.good { background: #e9f4ec; }
