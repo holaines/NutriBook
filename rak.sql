@@ -29,3 +29,9 @@ CREATE POLICY "rak_menus_public_read" ON public.rak_menus
 
 -- Seule la Edge Function (service_role) peut inserer/mettre a jour.
 -- Pas de policy INSERT/UPDATE pour anon/authenticated.
+
+-- Migration : ajout des colonnes gluten nuancé
+ALTER TABLE public.rak_menus
+  ADD COLUMN IF NOT EXISTS partial_gf boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS partial_gf_suggestion text,
+  ADD COLUMN IF NOT EXISTS gluten_minor boolean NOT NULL DEFAULT false;

@@ -151,24 +151,38 @@ function rakDayHTML(date, service) {
     const hasAny = dishes.length > 0;
     return '<div class="rak-slot-inner rak-status-no-gf">' +
       '<div class="rak-label">' + label + '</div>' +
-      '<div class="rak-indicator">? ' + (hasAny ? 'Aucune option sans gluten' : 'Menus non disponibles') + '</div>' +
+      '<div class="rak-indicator">\u26d4 ' + (hasAny ? 'Aucune option adapt\u00e9e' : 'Menus non disponibles') + '</div>' +
       (hasAny ? '<button class="btn" onclick="showRAKModal(\'' + date + '\',\'' + service + '\')">D\u00e9tails</button>' : '') +
       '</div>';
   }
 
   const goal = RAK.ironGoal();
   const ironOk = (best.iron_total || 0) >= goal.meal;
-  const statusClass = ironOk ? 'rak-status-good-iron' : 'rak-status-low-iron';
-  const icon = ironOk ? '&#x2713;' : '!';
+  const isFullGF = best.effective_status === 'confirmed_gf';
+  const isAcceptable = best.effective_status === 'acceptable';
+
+  // Classe CSS selon statut gluten + fer
+  var statusClass;
+  if (isFullGF) {
+    statusClass = ironOk ? 'rak-status-good-iron' : 'rak-status-low-iron';
+  } else {
+    statusClass = 'rak-status-acceptable';
+  }
+
+  const icon = isFullGF ? (ironOk ? '&#x2713;' : '!') : '~';
   const platName = best.plat ? h(best.plat.dish_name) : '';
   const accName = best.accompagnement ? ' + ' + h(best.accompagnement.dish_name) : '';
   const ironText = best.iron_total > 0
     ? (ironOk ? 'Bon apport (' + best.iron_total + ' mg Fe)' : 'Apport faible (' + best.iron_total + ' mg Fe)')
     : 'Fer non estim\u00e9';
+  const suggestion = (best.suggestions && best.suggestions.length)
+    ? '<div class="rak-suggestion">' + h(best.suggestions[0]) + '</div>'
+    : '';
 
   return '<div class="rak-slot-inner ' + statusClass + '">' +
-    '<div class="rak-label">' + label + '</div>' +
+    '<div class="rak-label">' + label + (isAcceptable ? ' \u2014 adapt\u00e9' : '') + '</div>' +
     '<div class="rak-indicator">' + icon + ' ' + platName + accName + '</div>' +
+    suggestion +
     '<div class="rak-iron-note">' + ironText + '</div>' +
     '<div class="buttons">' +
     '<button class="btn" onclick="showRAKModal(\'' + date + '\',\'' + service + '\')">D\u00e9tails</button>' +
@@ -185,28 +199,33 @@ function showRAKModal(date, service) {
   const dishes = RAK.getDay(date, service) || [];
   const label = service === 'dejeuner' ? 'RAK D\u00e9jeuner' : 'RAK D\u00eener';
   const consumed = RAK.getConsumed(date).find(function(x) { return x.service === service; });
-  const gStatusLabel = { 'confirmed_gf': '&#x2713; Sans gluten', 'contains_gluten': '&#x2717; Contient gluten', 'unknown': '? Inconnu' };
-  const ironConfLabel = { 'official': 'Officiel', 'estimated': 'Estim\u00e9', 'approximate': 'Approx.', 'insufficient': '?' };
+  const gStatusLabel = { 'confirmed_gf': '&#x2713; Sans gluten', 'contains_gluten': '&#x2717; Contient gluten', 'unknown': '? Incertain' };
+  const effLabel = { 'confirmed_gf': '&#x2705; Sans gluten confirmé', 'acceptable': '⚠️ Adapté (gluten mineur/évitable)', 'no_option': '⛔ Gluten important' };
+  const ironConfLabel = { 'official': 'Officiel', 'estimated': 'Estimé', 'approximate': 'Approx.', 'insufficient': '?' };
   _rakModalCombos = combos;
 
   function dishLine(d) {
     if (!d) return '';
     const gs = gStatusLabel[d.gluten_status] || '?';
     const iron = d.iron_mg_estimated != null ? d.iron_mg_estimated + ' mg (' + (ironConfLabel[d.iron_confidence] || '?') + ')' : '?';
+    const suggestion = (d.partial_gf && d.partial_gf_suggestion)
+      ? '<br><small style="color:#7a5c20;font-style:italic">→ ' + h(d.partial_gf_suggestion) + '</small>'
+      : (d.gluten_minor ? '<br><small style="opacity:.6">Gluten en très faible quantité (liant)</small>' : '');
     return '<div style="margin-left:8px"><b>' + h(d.dish_name) + '</b> <small>' + gs + ' &middot; ' + iron + ' Fe</small>' +
-      (d.gluten_reasoning ? '<br><small style="opacity:.7">' + h(d.gluten_reasoning) + '</small>' : '') + '</div>';
+      (d.gluten_reasoning ? '<br><small style="opacity:.7">' + h(d.gluten_reasoning) + '</small>' : '') +
+      suggestion + '</div>';
   }
 
   let body = '';
   if (combos && combos.length) {
     body = combos.map(function(combo, idx) {
-      const gs = gStatusLabel[combo.gluten_status] || '?';
-      const confirmBtn = (!consumed && combo.gluten_status === 'confirmed_gf')
-        ? '<button class="btn primary" onclick="confirmRAKCombo(\'' + date + '\',\'' + service + '\',' + idx + ')">J\'ai mang\u00e9 ce combo</button>'
+      const eff = effLabel[combo.effective_status] || (gStatusLabel[combo.gluten_status] || '?');
+      const confirmBtn = (!consumed && combo.effective_status !== 'no_option')
+        ? '<button class="btn primary" onclick="confirmRAKCombo(\'' + date + '\',\'' + service + '\',' + idx + ')">J\'ai mangé ce combo</button>'
         : '';
       return '<div class="item" style="flex-direction:column;align-items:flex-start">' +
-        '<b>Combo ' + combo.number + '</b> &middot; ' + gs + ' &middot; ' +
-        (combo.iron_total > 0 ? '<b>' + combo.iron_total + ' mg Fe total</b>' : 'Fer non estim\u00e9') +
+        '<b>Combo ' + combo.number + '</b> &middot; ' + eff + ' &middot; ' +
+        (combo.iron_total > 0 ? '<b>' + combo.iron_total + ' mg Fe total</b>' : 'Fer non estimé') +
         (combo.plat ? dishLine(combo.plat) : '') +
         (combo.accompagnement ? dishLine(combo.accompagnement) : '') +
         (confirmBtn ? '<div class="buttons" style="margin-top:6px">' + confirmBtn + '</div>' : '') +

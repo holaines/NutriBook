@@ -47,8 +47,22 @@
     return Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null;
   }
 
+  // Calcule le statut effectif d'un item : confirmed_gf > acceptable > no_option
+  // - confirmed_gf : gluten_status confirmed_gf
+  // - acceptable   : contains_gluten MAIS (partial_gf=true OU gluten_minor=true)
+  //                  OU gluten_status unknown
+  // - no_option    : contains_gluten ET partial_gf=false ET gluten_minor=false
+  function itemEffective(d) {
+    if (!d) return 'confirmed_gf'; // absence = neutre
+    if (d.gluten_status === 'confirmed_gf') return 'confirmed_gf';
+    if (d.gluten_status === 'contains_gluten') {
+      return (d.partial_gf || d.gluten_minor) ? 'acceptable' : 'no_option';
+    }
+    return 'acceptable'; // unknown -> traité comme acceptable (incertain)
+  }
+
   // Regroupe les plats par combo : plat1+accompagnement1, plat2+accompagnement2, etc.
-  // Retourne [{number, plat, accompagnement, dishes, iron_total, gluten_status}] ou null
+  // Retourne [{number, plat, accompagnement, dishes, iron_total, gluten_status, effective_status, suggestion}]
   function getCombos(date, service) {
     const dishes = getDay(date, service);
     if (!dishes) return null;
@@ -65,28 +79,55 @@
       var acc  = dishes.find(function (d) { return d.dish_category === 'accompagnement' + n; }) || null;
       var items = [plat, acc].filter(Boolean);
       var iron = items.reduce(function (s, d) { return s + (Number(d.iron_mg_estimated) || 0); }, 0);
+
+      // Statut effectif global du combo = le pire des items
+      var statuses = items.map(itemEffective);
+      var effective;
+      if (statuses.every(function (s) { return s === 'confirmed_gf'; })) {
+        effective = 'confirmed_gf';
+      } else if (statuses.indexOf('no_option') === -1) {
+        effective = 'acceptable';
+      } else {
+        effective = 'no_option';
+      }
+
+      // Agréger les suggestions
+      var suggestions = items
+        .filter(function (d) { return d && d.partial_gf && d.partial_gf_suggestion; })
+        .map(function (d) { return d.partial_gf_suggestion; });
+
+      // Statut legacy pour compatibilité
       var hasGluten = items.some(function (d) { return d.gluten_status === 'contains_gluten'; });
       var allGF = items.length > 0 && items.every(function (d) { return d.gluten_status === 'confirmed_gf'; });
+
       return {
         number: n,
         plat: plat,
         accompagnement: acc,
         dishes: items,
         iron_total: Math.round(iron * 10) / 10,
-        gluten_status: hasGluten ? 'contains_gluten' : (allGF ? 'confirmed_gf' : 'unknown')
+        gluten_status: hasGluten ? 'contains_gluten' : (allGF ? 'confirmed_gf' : 'unknown'),
+        effective_status: effective,
+        suggestions: suggestions,
       };
     });
 
     return combos.length ? combos : null;
   }
 
-  // Meilleur combo sans gluten (fer max), ou null
+  // Meilleur combo : priorité confirmed_gf > acceptable, fer max dans chaque niveau
   function getBestGlutenFreeCombo(date, service) {
     var combos = getCombos(date, service);
     if (!combos) return null;
-    var gf = combos.filter(function (c) { return c.gluten_status === 'confirmed_gf'; });
-    if (!gf.length) return null;
-    return gf.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
+    var gf = combos.filter(function (c) { return c.effective_status === 'confirmed_gf'; });
+    if (gf.length) {
+      return gf.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
+    }
+    var ok = combos.filter(function (c) { return c.effective_status === 'acceptable'; });
+    if (ok.length) {
+      return ok.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
+    }
+    return null;
   }
 
   // Meilleur plat sans gluten (fer max), ou null — conservé pour compatibilité

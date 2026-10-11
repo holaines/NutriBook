@@ -77,3 +77,8 @@ button[disabled]{opacity:.6;cursor:not-allowed}
 .top{align-items:flex-start}
 .buttons{align-items:center}
 }
+
+/* RAK — statut acceptable (gluten mineur ou partiellement évitable) */
+.rak-status-acceptable{border-color:#e8c97a;background:#fdf9ee}
+.rak-status-acceptable .rak-indicator{color:#7a5c20}
+.rak-suggestion{font-size:10px;color:#7a5c20;font-style:italic;margin-bottom:3px}

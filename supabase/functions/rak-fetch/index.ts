@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const allDishIds = dishes.map((d) => d.dish_id);
     const { data: existing } = await admin
       .from("rak_menus")
-      .select("dish_id, dish_name, gluten_status, gluten_source, gluten_reasoning, iron_mg_estimated, iron_confidence, iron_notes")
+      .select("dish_id, dish_name, gluten_status, gluten_source, gluten_reasoning, partial_gf, partial_gf_suggestion, gluten_minor, iron_mg_estimated, iron_confidence, iron_notes")
       .in("dish_id", allDishIds);
 
     const existingMap: Record<number, typeof existing[0]> = {};
@@ -67,6 +67,9 @@ Deno.serve(async (req) => {
         gluten_status: cached.gluten_status,
         gluten_source: cached.gluten_source,
         gluten_reasoning: cached.gluten_reasoning,
+        partial_gf: cached.partial_gf ?? false,
+        partial_gf_suggestion: cached.partial_gf_suggestion ?? null,
+        gluten_minor: cached.gluten_minor ?? false,
         iron_mg_estimated: cached.iron_mg_estimated,
         iron_confidence: cached.iron_confidence,
         iron_notes: cached.iron_notes,
@@ -74,6 +77,9 @@ Deno.serve(async (req) => {
         gluten_status: "unknown",
         gluten_source: "ai_analysis",
         gluten_reasoning: "Analyse non disponible",
+        partial_gf: false,
+        partial_gf_suggestion: null,
+        gluten_minor: false,
         iron_mg_estimated: null,
         iron_confidence: "insufficient",
         iron_notes: null,
@@ -88,6 +94,9 @@ Deno.serve(async (req) => {
         gluten_status: a.gluten_status,
         gluten_source: a.gluten_source,
         gluten_reasoning: a.gluten_reasoning ?? null,
+        partial_gf: a.partial_gf ?? false,
+        partial_gf_suggestion: a.partial_gf_suggestion ?? null,
+        gluten_minor: a.gluten_minor ?? false,
         iron_mg_estimated: a.iron_mg_estimated,
         iron_confidence: a.iron_confidence,
         iron_notes: a.iron_notes ?? null,
@@ -131,6 +140,9 @@ interface GeminiAnalysis {
   gluten_status: string;
   gluten_source: string;
   gluten_reasoning: string | null;
+  partial_gf: boolean;
+  partial_gf_suggestion: string | null;
+  gluten_minor: boolean;
   iron_mg_estimated: number | null;
   iron_confidence: string;
   iron_notes: string | null;
@@ -321,16 +333,31 @@ Réponds UNIQUEMENT avec un JSON valide. Chaque clé doit être le NOM EXACT du 
   "Nom exact du plat": {
     "gluten_status": "confirmed_gf ou contains_gluten ou unknown",
     "gluten_reasoning": "explication courte en français (max 15 mots)",
+    "partial_gf": true ou false,
+    "partial_gf_suggestion": "ce que l'on peut manger (ex: prendre uniquement les légumes) ou null",
+    "gluten_minor": true ou false,
     "iron_mg_estimated": nombre décimal ou null si vraiment incertain,
     "iron_confidence": "estimated ou approximate ou insufficient",
     "iron_notes": "principaux contributeurs en fer ou null"
   }
 }
 
-Règles:
-- confirmed_gf: aucun ingredient avec gluten detectable
-- contains_gluten: contient clairement du gluten (calamars romaine = panure de farine donc contains_gluten)
-- unknown: ambiguite trop importante
+Règles gluten_status:
+- confirmed_gf: aucun ingrédient avec gluten détectable
+- contains_gluten: contient du gluten (panure, pâtes, pain, béchamel, semoule, couscous, etc.)
+- unknown: ambiguïté trop importante
+
+Règles partial_gf (true si le gluten peut être physiquement évité):
+- Plat mixte comme "semoule + légumes" ou "boulgour + haricots verts" : partial_gf=true, suggestion="Prendre uniquement les légumes"
+- Plat type "poulet + riz" où le riz serait en sauce à la farine : partial_gf=true si on peut prendre le poulet seul
+- Pâtes, lasagnes, pizza, quiche (gluten omniprésent) : partial_gf=false
+- Si partial_gf=false mais contient gluten : partial_gf_suggestion=null
+
+Règles gluten_minor (true si gluten en très faible quantité, non dominant):
+- Boulettes de viande ou steaks hachés avec liant/chapelure minimale : gluten_minor=true
+- Sauces légèrement liées à la farine : gluten_minor=true
+- Pain, pâtes, béchamel épaisse, panure visible : gluten_minor=false
+
 - iron_confidence insufficient seulement si le plat est vraiment inconnu`;
 
   const fallback = (reason: string): Record<string, GeminiAnalysis> =>
@@ -341,6 +368,9 @@ Règles:
           gluten_status: "unknown",
           gluten_source: "ai_analysis",
           gluten_reasoning: reason,
+          partial_gf: false,
+          partial_gf_suggestion: null,
+          gluten_minor: false,
           iron_mg_estimated: null,
           iron_confidence: "insufficient",
           iron_notes: null,
@@ -388,6 +418,9 @@ Règles:
         gluten_status: (a.gluten_status as string) || "unknown",
         gluten_source: "ai_analysis",
         gluten_reasoning: (a.gluten_reasoning as string) ?? null,
+        partial_gf: Boolean(a.partial_gf),
+        partial_gf_suggestion: (a.partial_gf_suggestion as string) ?? null,
+        gluten_minor: Boolean(a.gluten_minor),
         iron_mg_estimated:
           a.iron_mg_estimated != null ? Number(a.iron_mg_estimated) : null,
         iron_confidence: (a.iron_confidence as string) || "insufficient",
@@ -402,6 +435,9 @@ Règles:
           gluten_status: "unknown",
           gluten_source: "ai_analysis",
           gluten_reasoning: "Non trouve dans la reponse Gemini",
+          partial_gf: false,
+          partial_gf_suggestion: null,
+          gluten_minor: false,
           iron_mg_estimated: null,
           iron_confidence: "insufficient",
           iron_notes: null,
