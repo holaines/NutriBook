@@ -306,3 +306,9 @@ textarea { min-height: 100px; resize: vertical; }
   #toasts { bottom: 84px; }
   .top { align-items: flex-start; }
 }
+
+/* Bienvenida */
+.ob-dots { display: flex; gap: 6px; }
+.ob-dots i { width: 22px; height: 6px; border-radius: 4px; background: #ead8df; }
+.ob-dots i.on { background: var(--rose); }
+.ob-dots i.done { background: var(--rose-soft); }

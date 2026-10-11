@@ -12,7 +12,9 @@ export const APP_FILES = () => {
 export const NOW = '2026-10-12T10:00:00'; // lunes; las fixtures RAK cubren 12-14 oct
 
 /** Carga la app en jsdom con Supabase/Cloud falsos y reloj fijo. */
-export async function loadApp({ data, user = true, now = NOW, db = null } = {}) {
+export async function loadApp({ data, user = true, now = NOW, db = null, onboarding = false } = {}) {
+  // por defecto la bienvenida no estorba; los tests que la prueban pasan onboarding: true
+  if (!onboarding) data = { ...(data || {}), profile: { onboarded: true, ...((data || {}).profile || {}) } };
   const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', {
     url: 'https://nutribook.test/', runScripts: 'dangerously', pretendToBeVisual: true,
   });

@@ -12,10 +12,14 @@ function profile() {
     ${field('Objetivo principal', `<select name="goal">${['Alimentación equilibrada', 'Mejorar rendimiento deportivo', 'Ganar masa muscular', 'Mantener peso', 'Otro'].map((o) => `<option ${o === p.goal ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
     ${field('Nutrientes que quieres priorizar', `<input name="priorities" value="${h(p.priorities)}">`)}
     ${field('Presupuesto semanal (€)', `<input name="budget" type="number" min="0" value="${h(p.budget)}">`)}
+    ${field('Sexo', `<select name="sex">${[['', 'Prefiero no indicarlo'], ['F', 'Mujer'], ['M', 'Hombre']].map(([v, l]) => `<option value="${v}" ${p.sex === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    ${field('Edad', `<input name="age" type="number" min="3" max="110" value="${h(p.age)}">`)}
+    ${field('Situación', `<select name="status">${[['none', 'Ninguna en especial'], ['pregnant', 'Embarazo'], ['breastfeeding', 'Lactancia']].map(([v, l]) => `<option value="${v}" ${p.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    ${field('Alimentación', `<select name="diet">${[['omnivore', 'Come de todo'], ['vegetarian', 'Vegetariana / vegana']].map(([v, l]) => `<option value="${v}" ${p.diet === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
     ${field('Objetivo de hierro diario (mg)', `<input name="ironDailyGoal" type="number" min="1" step="0.5" value="${Number(p.ironDailyGoal) || 16}">`)}
     ${field('Objetivo de hierro por comida (mg)', `<input name="ironMealGoal" type="number" min="1" step="0.5" value="${Number(p.ironMealGoal) || 5}">`)}
     ${field('Preferencias, alergias y notas', `<textarea name="notes">${h(p.notes)}</textarea>`, 'wide')}</div>
-    <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar perfil</button></div></form></div>
+    <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar perfil</button><button class="btn" type="button" ${on('click', 'openOnboarding', 1)}>Calcular mi objetivo recomendado</button></div></form></div>
   <div class="section-head"><h2>Mis datos</h2></div>
   <div class="card"><p class="muted">${window.NutriCloud?.getUser?.() ? 'Tus datos se guardan en este navegador y en tu cuenta (sincronización activa).' : 'Tus datos se guardan solo en este navegador. Inicia sesión arriba para sincronizarlos.'} Exporta copias de vez en cuando.</p>
     <div class="buttons"><button class="btn primary" ${on('click', 'exportData')}>↓ Exportar copia JSON</button><button class="btn" ${on('click', 'pickImport')}>↑ Importar copia JSON</button><button class="btn danger" ${on('click', 'clearAll')}>Eliminar todos mis datos</button>

@@ -20,6 +20,7 @@ window.NutriCloud?.start({
   read: () => state,
   apply: (data) => {
     state = hydrate(data);
+    if (ob && state.profile.onboarded) { ob = null; modal = null; }   // la nube ya tenía un perfil completo
     window.NBMerge?.reset(state);
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* sin espacio */ }
     render();

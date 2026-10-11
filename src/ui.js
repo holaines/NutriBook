@@ -116,6 +116,7 @@ function render() {
 }
 
 function afterRender() {
+  maybeOnboard();
   if (page === 'Calendario' || page === 'Equilibrio') ensureRak(weekStart());
   else if (page === 'Inicio') ensureRak(weekStart(0));
 }

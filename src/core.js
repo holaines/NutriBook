@@ -76,13 +76,15 @@ const DEFAULTS = () => ({
   schemaVersion: SCHEMA_VERSION,
   sync: { deleted: {}, stamps: {} },
   recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [],
-  profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5 },
+  profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5, sex: '', age: '', status: 'none', diet: 'omnivore', onboarded: false },
 });
 /** Migraciones del JSON guardado: MIGRATIONS[n] lleva los datos de la versión n-1 a la n. */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MIGRATIONS = {
   1: (d) => { delete d.workouts; delete d.stravaCache; return d; },   // sección Deporte retirada
   2: (d) => ({ ...d, sync: { deleted: {}, stamps: {}, ...(d.sync || {}) } }),   // marcas para la sincronización por elemento
+  // quien ya usa la app no vuelve a ver la bienvenida
+  3: (d) => ({ ...d, profile: { ...(d.profile || {}), onboarded: Boolean((d.profile || {}).onboarded || (d.recipes || []).length || (d.consumed || []).length || (d.profile || {}).name) } }),
 };
 function migrate(d) {
   d = { ...d };
@@ -114,6 +116,18 @@ const recipe = (id) => state.recipes.find((r) => r.id === id);
 // ═══════════════════════════════════════════════════════════════════════════
 // Hierro: cálculo central (lo usan Inicio, Calendario y Mi hierro)
 // ═══════════════════════════════════════════════════════════════════════════
+/** Objetivo orientativo de hierro (mg/día) según el perfil. Valores de referencia de población general (EFSA 2015); no es consejo médico. */
+function recommendedIron(p = {}) {
+  const age = Number(p.age) || null, female = p.sex === 'F', male = p.sex === 'M';
+  let mg = 16, basis = 'Valor habitual para una mujer adulta (completa tu perfil para afinarlo)';
+  if (age && age < 12) { mg = 11; basis = 'Referencia para niñas y niños de 4 a 11 años'; }
+  else if (age && age < 18) { mg = female ? 13 : 11; basis = 'Referencia para adolescentes'; }
+  else if (male) { mg = 11; basis = 'Referencia para hombres adultos'; }
+  else if (female && (p.status === 'pregnant' || p.status === 'breastfeeding')) { mg = 16; basis = p.status === 'pregnant' ? 'Referencia durante el embarazo' : 'Referencia durante la lactancia'; }
+  else if (female && age && age >= 51) { mg = 11; basis = 'Referencia para mujeres posmenopáusicas'; }
+  else if (female) { mg = 16; basis = 'Referencia para mujeres adultas antes de la menopausia'; }
+  return { mg, meal: Math.round(mg / 3 * 2) / 2, basis, vegetarian: p.diet === 'vegetarian' };
+}
 const goalDay = () => Number(state.profile.ironDailyGoal) || 16;
 const goalMeal = () => Number(state.profile.ironMealGoal) || 5;
 const ironVal = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) ? null : Number(v);
