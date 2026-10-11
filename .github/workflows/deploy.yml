@@ -10,10 +10,23 @@ permissions:
   id-token: write
 
 jobs:
+  # Los tests bloquean el despliegue si fallan
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
   # Déploie la table rak_menus et la Edge Function rak-fetch
   # Nécessite le secret SUPABASE_ACCESS_TOKEN (token personnel depuis
   # https://supabase.com/dashboard/account/tokens)
   deploy-supabase:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +62,7 @@ jobs:
         run: supabase functions deploy iron-estimate --project-ref cyewzqlkjbvsllotaywu
 
   deploy-pages:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages

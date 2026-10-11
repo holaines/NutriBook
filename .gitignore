@@ -1,2 +1,2 @@
-# Fichiers locaux à ne pas versionner
 .DS_Store
+node_modules/
