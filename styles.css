@@ -447,3 +447,5 @@ body.modal-open .fab { display: none; }
 
 .gap { margin-top: 14px; display: grid; gap: 6px; }
 .gap-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+
+.add-extra { display: flex; gap: 8px; margin-bottom: 10px; } .add-extra input { flex: 1; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 10px; background: var(--surface-soft); color: var(--ink); }
