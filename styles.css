@@ -451,3 +451,16 @@ body.modal-open .fab { display: none; }
 .add-extra { display: flex; gap: 8px; margin-bottom: 10px; } .add-extra input { flex: 1; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 10px; background: var(--surface-soft); color: var(--ink); }
 
 .import-url { display: grid; gap: 10px; }
+
+/* Informe */
+.report h2 { margin-top: 0; } .report h3 { margin: 18px 0 6px; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 14px 0; }
+.report-grid > div { display: grid; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; } .report-grid b { font-size: 20px; font-family: Georgia, serif; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13.5px; } .report-table th, .report-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+@media print {
+  :root, :root[data-theme="dark"] { color-scheme: light; --cream: #fff; --ink: #000; --muted: #444; --line: #bbb; --surface: #fff; --surface-soft: #fff; --card-line: #bbb; --shadow: none; --rose: #000; --tint: #fff; }
+  .sidebar, .fab, .footer, .no-print, #toasts, .top .buttons, #modal-root { display: none !important; }
+  body { background: #fff; color: #000; } .app { display: block; } .main { padding: 0; max-width: none; }
+  .card { box-shadow: none; border: 0; padding: 0; } .report-table tr, .report-grid > div { break-inside: avoid; } h1 { font-size: 22px; }
+  a { color: #000; text-decoration: none; }
+}

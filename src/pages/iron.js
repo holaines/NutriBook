@@ -51,7 +51,7 @@ function statCards(s, streak, periodLabel) {
 }
 
 function equilibrium() {
-  const actions = `<button class="btn primary" ${on('click', 'openQuickAdd')}>+ Registrar</button><button class="btn" ${on('click', 'openEatRecipe', today())}>+ Receta</button>`;
+  const actions = `<button class="btn primary" ${on('click', 'openQuickAdd')}>+ Registrar</button><button class="btn" ${on('click', 'openEatRecipe', today())}>+ Receta</button><button class="btn" ${on('click', 'navigate', 'Informe')}>🩺 Informe</button>`;
   const head = pageHeader('Mi hierro', 'Lo que has comido de verdad, día a día, frente a tu objetivo.', actions) + segmented();
   const streak = ironStreak();
   if (ironView === 'month') {

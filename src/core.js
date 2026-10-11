@@ -17,6 +17,7 @@ const PAGES = [
   { id: 'Compra', label: 'Mi compra', icon: '🛒' },
   { id: 'Despensa', label: 'Despensa', icon: '🥫' },
   { id: 'Perfil', label: 'Mi perfil', icon: '👤' },
+  { id: 'Informe', label: 'Informe', icon: '🩺' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

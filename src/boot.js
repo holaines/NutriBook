@@ -1,7 +1,7 @@
 'use strict';
 /* NutriBook — arranque (script clásico; comparte el ámbito global con el resto de src/). */
 
-const VIEWS = { Inicio: home, Recetas: recipes, Calendario: calendar, Despensa: pantry, Compra: shopping, Equilibrio: equilibrium, Perfil: profile };
+const VIEWS = { Inicio: home, Recetas: recipes, Calendario: calendar, Despensa: pantry, Compra: shopping, Equilibrio: equilibrium, Perfil: profile, Informe: report };
 
 const hashPage = decodeURIComponent(location.hash.slice(1));
 if (PAGES.some((p) => p.id === hashPage)) page = hashPage;

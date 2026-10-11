@@ -36,6 +36,7 @@ const SHELL = [
   'src/pages/supplements.js',
   'src/pages/labs.js',
   'src/pages/quickadd.js',
+  'src/pages/report.js',
   'src/rak-ui.js',
   'src/boot.js',
   'supabase-config.js'

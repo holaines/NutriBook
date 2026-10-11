@@ -47,7 +47,7 @@ test('tema oscuro: define todos los tokens del claro (nada se queda con un color
 });
 
 test('CSS: no quedan fondos blancos fijos que rompan el tema oscuro', () => {
-  const body = css.slice(css.indexOf('/* ───────── Base'));
+  const body = css.slice(css.indexOf('/* ───────── Base')).replace(/@media print \{[\s\S]*?\n\}\n/g, '');   // el papel siempre es blanco
   assert.doesNotMatch(body, /background:\s*#fff\b/);
   assert.doesNotMatch(body, /background:\s*#f[0-9a-f]{5}\b/i, 'fondos pastel fijos');
 });
