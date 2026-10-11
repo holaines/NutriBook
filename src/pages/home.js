@@ -37,6 +37,7 @@ function home() {
     <div class="card iron-card"><div class="card-title">Hierro de hoy</div>
       <div class="iron-card-body">${ironRing(di)}
         <div class="iron-legend"><div><i class="lg eaten"></i><b>${fmtMg(di.eaten)} mg</b> comidos</div>
+          ${absorbedLine(d)}
           ${di.planned > 0 ? `<div><i class="lg plan"></i><b>${fmtMg(di.planned)} mg</b> previstos</div>` : ''}
           <div class="${missing > 0 ? 'need' : 'ok'}">${missing > 0 ? `Te faltan <b>${fmtMg(missing)} mg</b> para tu objetivo` : '✓ ¡Objetivo de hoy cubierto!'}</div>
           ${di.unknown ? `<small class="muted">${di.unknown} comida(s) sin dato de hierro</small>` : ''}</div></div>

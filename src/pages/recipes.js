@@ -104,6 +104,7 @@ function openForm(id, draft) {
       ${field('Ingredientes · uno por línea (p. ej. 200 g de lentejas coral)', `<textarea name="ingredients" rows="6" required>${h(ingredientText(r))}</textarea>`, 'wide')}
       ${field('Pasos · uno por línea', `<textarea name="instructions" rows="6" required>${h((r.instructions || []).join('\n'))}</textarea>`, 'wide')}
       ${field('Hierro por ración (mg, opcional)', `<input name="iron" type="number" min="0" step="0.1" value="${h(r.iron ?? '')}">`)}
+      ${field('Tipo de hierro (para estimar la absorción)', `<select name="ironType">${[['', 'Automático según ingredientes'], ['heme', 'Animal (carne, pescado)'], ['nonheme', 'Vegetal'], ['mixed', 'Mezcla']].map(([v, l]) => `<option value="${v}" ${(r.ironType || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
       ${field('Fuente / URL (opcional)', `<input name="source" value="${h(r.source || '')}">`)}</div>
       <p class="info muted">Si dejas el hierro en blanco, la IA lo estimará al guardar (necesitas haber iniciado sesión). Tus valores manuales nunca se sobrescriben.</p>
       <div class="buttons"><button class="btn primary" type="submit">Guardar receta</button><button class="btn" type="button" ${on('click', 'closeModal')}>Cancelar</button></div></form>`);
@@ -116,7 +117,7 @@ function saveRecipe(form, id) {
   const obj = {
     id: id || eid(), name: f.name.trim(), description: f.description, emoji: f.emoji || '🥗', categories: [f.category],
     ingredients, instructions: sub(f.instructions), servings: Number(f.servings) || 1, time: Number(f.time) || 0,
-    iron, source: f.source, favorite: old?.favorite || false,
+    iron, ironType: f.ironType || '', source: f.source, favorite: old?.favorite || false,
     ironSource: iron === null ? '' : (sameIron ? old.ironSource : 'manual'),
     nutrition: sameIron ? (old.nutrition || null) : null,
   };

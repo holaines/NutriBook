@@ -312,3 +312,6 @@ textarea { min-height: 100px; resize: vertical; }
 .ob-dots i { width: 22px; height: 6px; border-radius: 4px; background: #ead8df; }
 .ob-dots i.on { background: var(--rose); }
 .ob-dots i.done { background: var(--rose-soft); }
+
+.abs-line { font-size: 13px; color: var(--ink-soft, #6b5560); margin-top: 2px; }
+.abs-line b { color: var(--ink); }

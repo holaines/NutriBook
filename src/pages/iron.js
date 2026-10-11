@@ -19,6 +19,7 @@ function equilibrium() {
     <div class="card"><div class="muted small">MEDIA POR DÍA REGISTRADO</div><div class="metric ${ironLevel(avg, goalDay())}">${fmtMg(avg)} mg</div><small class="muted">objetivo ${goalDay()} mg</small></div>
     <div class="card"><div class="muted small">DÍAS CON OBJETIVO</div><div class="metric">${hit} / ${past.length}</div></div>
     <div class="card"><div class="muted small">COMIDAS SIN DATO</div><div class="metric">${unknown}</div></div></div>
+  ${weekAbsorbedNotice(dates, total)}
   <div class="section-head"><h2>Hierro por día</h2></div><div class="card">${ironChart(dates)}</div>
   <div class="section-head"><h2>Detalle</h2></div>
   <div class="day-list">${days.map((x) => dayDetail(x)).join('')}</div>
@@ -44,7 +45,7 @@ function dayDetail(x) {
         <button class="btn mini" ${on('click', 'toggleEaten', k)}>Comido</button></div>`);
     }
   }
-  return `<div class="card day-card ${d === today() ? 'today' : ''}" id="day-${d}"><div class="day-card-head"><div><b>${fmtDay(d)}</b></div>${ironBar(x)}</div>
+  return `<div class="card day-card ${d === today() ? 'today' : ''}" id="day-${d}"><div class="day-card-head"><div><b>${fmtDay(d)}</b></div>${ironBar(x)}</div>${absorbedLine(d)}
     ${rows.length ? rows.join('') : '<div class="muted small" style="padding:8px 0">Nada registrado.</div>'}
     <div class="buttons day-actions"><button class="btn mini" ${on('click', 'openFoodForm', d)}>+ Comida</button><button class="btn mini" ${on('click', 'openEatRecipe', d)}>+ Receta</button></div></div>`;
 }
@@ -56,12 +57,13 @@ function openFoodForm(date) {
     <form ${on('submit', 'addFood', '@el', date)}><div class="form-grid">
       ${field('Momento', `<select name="meal">${MEALS.map((m) => `<option ${m === defaultMeal() ? 'selected' : ''}>${m}</option>`).join('')}</select>`)}
       ${field('Hierro ingerido (mg, opcional)', `<input name="iron" type="number" min="0" step="0.1" placeholder="En blanco si no lo sabes">`)}
+      ${field('Tipo de hierro (para estimar la absorción)', `<select name="ironType">${[['', 'No lo sé / automático'], ['heme', 'Animal (carne, pescado)'], ['nonheme', 'Vegetal, huevo o lácteo'], ['mixed', 'Mezcla']].map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>`)}
       ${field('¿Qué has comido? (puede ser fuera de casa)', `<input name="name" required placeholder="Ej. Lentejas con arroz">`, 'wide')}</div>
       <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" ${on('click', 'closeModal')}>Cancelar</button></div></form>`);
 }
 function addFood(form, date) {
   const f = Object.fromEntries(new FormData(form));
-  state.consumed.push({ id: eid(), date, meal: f.meal, name: f.name.trim(), iron: f.iron === '' ? null : Number(f.iron) });
+  state.consumed.push({ id: eid(), date, meal: f.meal, name: f.name.trim(), iron: f.iron === '' ? null : Number(f.iron), ...(f.ironType ? { ironType: f.ironType } : {}) });
   save(); closeModal(); render(); toast('Comida registrada');
 }
 function openEatRecipe(date, recipeId) {
