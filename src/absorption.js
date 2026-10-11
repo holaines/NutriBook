@@ -66,11 +66,11 @@ function absorbedLine(date) {
   return `<div class="abs-line" title="Estimación: el hierro de carne y pescado se absorbe mejor que el vegetal, y la vitamina C ayuda. No es una medida médica.">≈ <b>${fmtAbs(a)}</b> absorbidos <small class="muted">(estimado)</small></div>`;
 }
 
-function weekAbsorbedNotice(dates, totalMg) {
+function weekAbsorbedNotice(dates, totalMg, label = 'esta semana') {
   const t = dates.map(dayAbsorbed).reduce((s, a) => ({ low: s.low + a.low, high: s.high + a.high }), { low: 0, high: 0 });
   if (!(t.high > 0) || !(totalMg > 0)) return '';
   const low = Math.round(t.low * 10) / 10, high = Math.round(t.high * 10) / 10;
-  return `<div class="notice">🧪 De los <b>${fmtMg(totalMg)} mg</b> ingeridos esta semana, se absorberían unos <b>${fmtMg(low)}–${fmtMg(high)} mg</b> (estimación). Combina el hierro vegetal con vitamina C y separa el café o el té de las comidas.</div>`;
+  return `<div class="notice">🧪 De los <b>${fmtMg(totalMg)} mg</b> ingeridos ${label}, se absorberían unos <b>${fmtMg(low)}–${fmtMg(high)} mg</b> (estimación). Combina el hierro vegetal con vitamina C y separa el café o el té de las comidas.</div>`;
 }
 
 /** Comidas de un día con su hierro: lo comido y lo planificado (si el día no ha pasado). */

@@ -4,23 +4,68 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Mi hierro (equilibrio)
 // ═══════════════════════════════════════════════════════════════════════════
+let ironView = 'week', ironMonth = null;   // ironMonth: primer día del mes mostrado (null = mes actual)
+const shownMonth = () => ironMonth || monthStart(today());
+function setIronView(v) { ironView = v; renderMain(); }
+function shiftMonth(n) { ironMonth = n === 0 ? null : monthShift(shownMonth(), n); renderMain(); }
+
+const segmented = () => `<div class="seg" role="tablist" aria-label="Periodo">${[['week', 'Semana'], ['month', 'Mes']].map(([v, l]) =>
+  `<button role="tab" aria-selected="${ironView === v}" class="${ironView === v ? 'on' : ''}" ${on('click', 'setIronView', v)}>${l}</button>`).join('')}</div>`;
+
+function monthNav() {
+  const first = shownMonth(), label = parseDate(first).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  return `<div class="week-head"><div class="buttons"><button class="btn" ${on('click', 'shiftMonth', -1)} aria-label="Mes anterior">←</button><button class="btn" ${on('click', 'shiftMonth', 0)}>Hoy</button><button class="btn" ${on('click', 'shiftMonth', 1)} aria-label="Mes siguiente">→</button></div>
+    <strong class="week-label" style="text-transform:capitalize">${h(label)}</strong></div>`;
+}
+
+/** Cuadrícula tipo calendario: un cuadrado por día, coloreado según el hierro comido frente al objetivo. */
+function monthHeat(dates) {
+  const lead = (parseDate(dates[0]).getDay() + 6) % 7, t = today();
+  const cells = [...Array(lead).fill('<i class="heat-blank"></i>'), ...dates.map((d) => {
+    const di = dayIron(d), has = d <= t && (di.eaten > 0 || di.unknown > 0), lvl = has ? ironLevel(di.eaten, di.goal) : 'none';
+    const mark = { good: '✓', mid: '·', low: '·', none: '' }[lvl];
+    return `<button class="heat ${lvl} ${d === t ? 'is-today' : ''}" ${on('click', 'openDay', d)} aria-label="${h(fmtDay(d))}: ${has ? fmtMg(di.eaten) + ' mg' : 'sin registros'}"><b>${parseDate(d).getDate()}</b><small>${has ? fmtMg(di.eaten) : ''}</small><span class="sr">${mark}</span></button>`;
+  })];
+  return `<div class="heat-grid"><div class="heat-head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((x) => `<span>${x}</span>`).join('')}</div><div class="heat-body">${cells.join('')}</div></div>
+    <div class="legend"><span><i class="lg heat-good"></i>Objetivo cumplido</span><span><i class="lg heat-mid"></i>≥ 60 %</span><span><i class="lg heat-low"></i>Por debajo</span></div>`;
+}
+
+function sourcesCard(dates, title = 'De dónde viene tu hierro') {
+  const top = topSources(dates);
+  return `<div class="card"><div class="card-title">${title}</div>${top.length ? top.map((s) => `<div class="source-row"><span class="source-name">${h(s.name)}${s.count > 1 ? ` <small class="muted">×${s.count}</small>` : ''}</span>
+    <span class="source-bar"><i style="width:${Math.max(4, s.share)}%"></i></span><b>${fmtMg(s.mg)} mg</b></div>`).join('') : '<p class="muted small">Cuando registres comidas verás aquí cuáles te aportan más hierro.</p>'}</div>`;
+}
+
+function compareLine(cmp, what) {
+  if (!cmp) return '';
+  const up = cmp.diff >= 0, word = up ? 'más' : 'menos';
+  return `<div class="notice">${up ? '📈' : '📉'} Tu media por día registrado es de <b>${fmtMg(cmp.cur)} mg</b>, ${fmtMg(Math.abs(cmp.diff))} mg ${word} (${Math.abs(cmp.pct)} %) que ${what} (${fmtMg(cmp.prev)} mg).</div>`;
+}
+
+function statCards(s, streak, periodLabel) {
+  return `<div class="grid stats4"><div class="card"><div class="muted small">HIERRO ${periodLabel}</div><div class="metric">${fmtMg(s.total)} mg</div></div>
+    <div class="card"><div class="muted small">MEDIA POR DÍA REGISTRADO</div><div class="metric ${ironLevel(s.avg, goalDay())}">${fmtMg(s.avg)} mg</div><small class="muted">objetivo ${goalDay()} mg</small></div>
+    <div class="card"><div class="muted small">DÍAS CON OBJETIVO</div><div class="metric">${s.hit} / ${s.pastDays}</div></div>
+    <div class="card"><div class="muted small">RACHA</div><div class="metric">${streak > 0 ? '🔥 ' : ''}${streak} ${streak === 1 ? 'día' : 'días'}</div><small class="muted">${streak > 0 ? 'cumpliendo tu objetivo' : 'empieza hoy'}</small></div></div>
+    ${s.unknown ? `<p class="small muted">${s.unknown} ${s.unknown === 1 ? 'comida' : 'comidas'} sin dato de hierro (no se cuentan como cero verificado).</p>` : ''}`;
+}
+
 function equilibrium() {
-  const dates = weekDates(), days = dates.map((d) => ({ d, ...dayIron(d) })), t = today();
-  const past = days.filter((x) => x.d <= t);
-  const logged = past.filter((x) => x.eaten > 0 || x.unknown > 0);   // la media solo cuenta días con algún registro
-  const total = days.reduce((n, x) => n + x.eaten, 0);
-  const avg = logged.length ? logged.reduce((n, x) => n + x.eaten, 0) / logged.length : 0;
-  const hit = past.filter((x) => x.eaten >= x.goal).length;
-  const unknown = days.reduce((n, x) => n + x.unknown, 0);
-  return pageHeader('Mi hierro', 'Lo que has comido de verdad, día a día, frente a tu objetivo.',
-    `<button class="btn primary" ${on('click', 'openFoodForm', today())}>+ Comida</button><button class="btn" ${on('click', 'openEatRecipe', today())}>+ Receta</button>`) +
-  weekNav() + rakBanner(weekStart()) +
-  `<div class="grid stats4"><div class="card"><div class="muted small">HIERRO DE LA SEMANA</div><div class="metric">${fmtMg(total)} mg</div></div>
-    <div class="card"><div class="muted small">MEDIA POR DÍA REGISTRADO</div><div class="metric ${ironLevel(avg, goalDay())}">${fmtMg(avg)} mg</div><small class="muted">objetivo ${goalDay()} mg</small></div>
-    <div class="card"><div class="muted small">DÍAS CON OBJETIVO</div><div class="metric">${hit} / ${past.length}</div></div>
-    <div class="card"><div class="muted small">COMIDAS SIN DATO</div><div class="metric">${unknown}</div></div></div>
-  ${weekAbsorbedNotice(dates, total)}
-  <div class="section-head"><h2>Hierro por día</h2></div><div class="card">${ironChart(dates)}</div>
+  const actions = `<button class="btn primary" ${on('click', 'openQuickAdd')}>+ Registrar</button><button class="btn" ${on('click', 'openEatRecipe', today())}>+ Receta</button>`;
+  const head = pageHeader('Mi hierro', 'Lo que has comido de verdad, día a día, frente a tu objetivo.', actions) + segmented();
+  const streak = ironStreak();
+  if (ironView === 'month') {
+    const dates = monthDates(shownMonth()), s = periodStats(dates), prev = monthDates(monthShift(shownMonth(), -1));
+    return head + monthNav() +
+      statCards(s, streak, 'DEL MES') + compareLine(comparePeriods(dates, prev), 'el mes anterior') + weekAbsorbedNotice(dates, s.total, 'este mes') +
+      `<div class="section-head"><h2>Mapa del mes</h2></div><div class="card">${monthHeat(dates)}</div>` +
+      `<div class="section-head"><h2>Fuentes</h2></div>${sourcesCard(dates)}`;
+  }
+  const dates = weekDates(), s = periodStats(dates), prev = weekDates(datePlus(weekStart(), -7)), days = s.days;
+  return head + weekNav() + rakBanner(weekStart()) +
+  statCards(s, streak, 'DE LA SEMANA') + compareLine(comparePeriods(dates, prev), 'la semana anterior') + weekAbsorbedNotice(dates, s.total) +
+  `<div class="section-head"><h2>Hierro por día</h2></div><div class="card">${ironChart(dates)}</div>
+  ${sourcesCard(dates)}
   ${supplementsCard()}
   ${labsCard()}
   <div class="section-head"><h2>Detalle</h2></div>

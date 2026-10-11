@@ -72,6 +72,7 @@ function navigate(p, opts = {}) {
 }
 /** Abre «Mi hierro» en la semana del día indicado */
 function openDay(d) {
+  if (typeof ironView !== 'undefined') ironView = 'week';   // el detalle de un día vive en la vista semanal
   weekOffset = Math.round((parseDate(mondayOf(d)) - parseDate(mondayOf(today()))) / (7 * 864e5));
   navigate('Equilibrio', { keepWeek: true });
   setTimeout(() => document.getElementById('day-' + d)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
