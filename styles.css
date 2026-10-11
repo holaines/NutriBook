@@ -326,3 +326,17 @@ textarea { min-height: 100px; resize: vertical; }
 .lab-line { fill: none; stroke: var(--rose); stroke-width: 2; }
 .lab-dot { fill: var(--rose); }
 .lab-last { font-size: 11px; fill: var(--ink); font-weight: 700; }
+
+/* Registro rápido */
+.fab { position: fixed; right: 22px; bottom: 22px; z-index: 15; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--rose); color: #fff; font-size: 32px; line-height: 1; box-shadow: 0 8px 22px rgba(120, 50, 80, .35); cursor: pointer; }
+.fab:hover { filter: brightness(1.08); }
+body.modal-open .fab { display: none; }
+@media (max-width: 750px) { .fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 16px; } }
+.qa-search { width: 100%; margin: 12px 0 8px; padding: 12px 13px; border: 1px solid #dfc9d2; border-radius: 12px; font-size: 16px; }
+.qa-results { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.qa-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.qa-name { display: grid; }
+.qa-portions { display: flex; gap: 4px; }
+.qa-portions .btn { min-width: 40px; min-height: 40px; }
+.qa-added { margin-top: 10px; display: grid; gap: 4px; }
+.qa-flash { font-size: 13.5px; padding: 6px 10px; border-radius: 10px; background: #e9f4ec; }

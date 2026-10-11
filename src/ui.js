@@ -109,7 +109,7 @@ function render() {
     <div id="sync-slot">${window.NutriCloud?.syncBadge?.() || ''}</div>
     <div class="side-foot">Hecho para cocinar a tu ritmo.<br>🌱 ${window.NutriCloud?.getUser?.() ? 'Datos sincronizados en tu cuenta.' : 'Datos guardados en este navegador.'}</div></aside>
     <main class="main"><div id="view">${(VIEWS[page] || home)()}</div>
-    <div class="footer">NutriBook · Las estimaciones nutricionales no sustituyen asesoramiento sanitario.</div></main></div><div id="modal-root"></div>`;
+    <div class="footer">NutriBook · Las estimaciones nutricionales no sustituyen asesoramiento sanitario.</div></main></div><button class="fab" aria-label="Registrar comida rápido" ${on('click', 'openQuickAdd')}>+</button><div id="modal-root"></div>`;
   if (modal) showModal(modal);
   window.scrollTo(0, y);
   afterRender();

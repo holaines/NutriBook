@@ -155,6 +155,7 @@ function dayIron(date) {
       }
     }
   }
-  const goal = goalDay();
-  return { eaten, planned, total: eaten + planned, unknown, goal, level: ironLevel(eaten + planned, goal) };
+  const goal = goalDay(), r2 = (v) => Math.round(v * 100) / 100;   // sin ruido de coma flotante
+  eaten = r2(eaten); planned = r2(planned);
+  return { eaten, planned, total: r2(eaten + planned), unknown, goal, level: ironLevel(eaten + planned, goal) };
 }

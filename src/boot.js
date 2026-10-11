@@ -9,7 +9,12 @@ window.addEventListener('hashchange', () => {
   const p = decodeURIComponent(location.hash.slice(1));
   if (PAGES.some((x) => x.id === p) && p !== page) { page = p; modal = null; weekOffset = 0; render(); }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal) closeModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modal) closeModal();
+  // «n» abre el registro rápido (si no se está escribiendo y no hay otra ventana abierta)
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable;
+  if (e.key === 'n' && !typing && !modal && !e.ctrlKey && !e.metaKey && !e.altKey && !authLoading) { e.preventDefault(); openQuickAdd(); }
+});
 
 window.NutriBook = { getState: () => state, save };
 if (!window.NutriCloud) authLoading = false;

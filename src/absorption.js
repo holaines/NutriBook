@@ -27,11 +27,11 @@ const recipeText = (r) => (r?.ingredients || []).map((i) => i.name).join(' ');
 
 /** Perfil de absorción de una comida registrada: { mg, type, vitc, inhib } */
 function entryProfile(x) {
-  const r = x.recipeId ? recipe(x.recipeId) : null, text = r ? recipeText(r) + ' ' + r.name : x.name;
+  const r = x.recipeId ? recipe(x.recipeId) : null, food = x.foodId ? foodById(x.foodId) : null, text = r ? recipeText(r) + ' ' + r.name : x.name;
   return {
     mg: Number(x.iron) || 0,
     type: ['heme', 'nonheme', 'mixed'].includes(x.ironType) ? x.ironType : r ? recipeIronType(r) : (HEME_WORDS.test(normText(x.name)) ? 'mixed' : 'nonheme'),
-    vitc: hasVitC(text), inhib: hasInhibitor(text),
+    vitc: hasVitC(text) || Boolean(food?.tags.includes('vitc')), inhib: hasInhibitor(text) || Boolean(food?.tags.some((t) => t === 'polifenoles' || t === 'calcio')),
   };
 }
 
