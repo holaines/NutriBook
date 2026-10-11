@@ -38,7 +38,7 @@ export async function loadApp({ data, user = true, now = NOW } = {}) {
     getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',
     scheduleSave: (s) => saved.push(s), start: (o) => o.onReady(),
   };
-  for (const f of ['rak.js', 'app.js']) inject(fs.readFileSync(path.join(root, f), 'utf8'));
+  for (const f of ['html.js', 'events.js', 'rak.js', 'app.js']) inject(fs.readFileSync(path.join(root, f), 'utf8'));
   await sleep(50);
 
   const app = {
