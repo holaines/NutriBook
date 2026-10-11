@@ -74,13 +74,15 @@ function toast(msg, kind = '', action) {
 // ═══════════════════════════════════════════════════════════════════════════
 const DEFAULTS = () => ({
   schemaVersion: SCHEMA_VERSION,
+  sync: { deleted: {}, stamps: {} },
   recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [],
   profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5 },
 });
 /** Migraciones del JSON guardado: MIGRATIONS[n] lleva los datos de la versión n-1 a la n. */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const MIGRATIONS = {
   1: (d) => { delete d.workouts; delete d.stravaCache; return d; },   // sección Deporte retirada
+  2: (d) => ({ ...d, sync: { deleted: {}, stamps: {}, ...(d.sync || {}) } }),   // marcas para la sincronización por elemento
 };
 function migrate(d) {
   d = { ...d };
@@ -97,12 +99,14 @@ function load() {
   try { return hydrate(JSON.parse(localStorage.getItem(KEY))); } catch { return DEFAULTS(); }
 }
 function save() {
+  window.NBMerge?.stamp(state);   // marca lo modificado/borrado antes de guardar (sincronización por elemento)
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
   catch { toast('No queda espacio en el navegador. Exporta tus datos desde «Mi perfil».', 'warn'); }
   window.NutriCloud?.scheduleSave(state);
 }
 
 let state = load();
+window.NBMerge?.reset(state);
 let page = 'Inicio', weekOffset = 0, modal = null, authLoading = true;
 let filters = { search: '', cat: '', maxTime: '', ingredient: '', sort: 'recent', fav: false, iron: false };
 const recipe = (id) => state.recipes.find((r) => r.id === id);

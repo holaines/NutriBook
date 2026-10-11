@@ -33,32 +33,32 @@
     } catch(e){note('No se pudo iniciar la nube: '+e.message)}
     finally { opts.onReady?.(); }
   }
+  const merge = (local, cloud) => (window.NBMerge && cloud && Object.keys(cloud).length ? window.NBMerge.mergeStates(local, cloud) : local);
+  async function fetchCloud(u){
+    const {data,error}=await client.from('nutribook_data').select('payload').eq('user_id',u.id).maybeSingle();
+    if(error)throw error;
+    return data?.payload||null;
+  }
   async function connect(u){
     user=u;ready=false;pending=null;note('Conectando a la base de datos\u2026');
-    const {data,error}=await client.from('nutribook_data').select('payload').eq('user_id',u.id).maybeSingle();
-    if(error){note('Error de Supabase: '+error.message);return}
-    if(data && data.payload && Object.keys(data.payload).length){
-      const cloud=data.payload;
-      const local=readLocal();
-      const localHasData=(local.recipes?.length||0)+(local.pantry?.length||0)+Object.keys(local.plan||{}).length>0;
-      if(localHasData && JSON.stringify(local)!==JSON.stringify(cloud)){
-        if(!confirm('Ya hay datos de NutriBook en la nube. ¿Quieres descargarlos a este navegador? ANTES exporta una copia JSON si necesitas conservar los datos locales. Si cancelas, no se sobrescribirá nada.')) {
-          note('Diferencias pendientes: exporta una copia JSON y pulsa Sincronizar ahora para decidir.');return;
-        }
-      }
-      applyCloud(cloud);
-      ready=true;note('\u2713 Recetas descargadas de Supabase y sincronización activada.');
-    } else {
-      const local=readLocal();
-      if(!confirm('No hay datos en esta cuenta de Supabase. ¿Quieres subir las recetas que tienes en este navegador?')){note('Sincronización pendiente de confirmar.');return}
-      ready=true;
-      await write(local);
-      note('\u2713 Recetas locales guardadas en Supabase.');
-    }
+    let cloud;
+    try{cloud=await fetchCloud(u)}catch(e){note('Error de Supabase: '+e.message);return}
+    // La unión conserva lo de ambos lados (gana el cambio más reciente de cada elemento): no hace falta preguntar.
+    const merged=merge(readLocal(),cloud);
+    applyCloud(merged);
+    ready=true;
+    await write(merged,{merged:true});
+    note(cloud?'\u2713 Datos sincronizados con Supabase.':'\u2713 Recetas locales guardadas en Supabase.');
   }
-  async function write(value) {
+  // Antes de escribir se vuelve a leer la nube y se une: otro dispositivo pudo guardar entretanto.
+  async function write(value,opts={}) {
     if(!client||!user||!ready)return;
-    const {error}=await client.from('nutribook_data').upsert({user_id:user.id,payload:value,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    let out=value;
+    if(!opts.merged){
+      out=merge(JSON.parse(JSON.stringify(readLocal())),await fetchCloud(user));   // estado actual, no la copia pendiente
+      if(JSON.stringify(out)!==JSON.stringify(value))applyCloud(out);
+    }
+    const {error}=await client.from('nutribook_data').upsert({user_id:user.id,payload:out,updated_at:new Date().toISOString()},{onConflict:'user_id'});
     if(error)throw error;
   }
   async function drain(){

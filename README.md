@@ -12,13 +12,13 @@ Abre la carpeta y ejecuta **Live Server** sobre `index.html`. No necesitas Node 
 2. Abre **SQL Editor**, pega el contenido de [supabase.sql](./supabase.sql) y ejecútalo. Se crea la tabla `nutribook_data` con **Row Level Security** para que cada persona solo pueda leer/escribir sus datos.
 3. Abre **Project Settings → API** (o **Connect** según la interfaz). Copia **Project URL** y la **publishable key** (o la clave pública `anon` heredada) a [supabase-config.js](./supabase-config.js). Estas dos son públicas; **nunca** compartas una clave `service_role` o `secret`.
 4. En **Authentication → URL Configuration**, añade la URL de tu web desplegada a los **Redirect URLs**. Para usar enlaces de acceso desde correo, se recomienda publicar la web bajo HTTPS (por ejemplo GitHub Pages). Si utilizas localhost, añade también la URL local correspondiente.
-5. Abre la página → **Mi perfil → Mi cuenta y sincronización**, introduce tu correo y accede desde el enlace recibido. La primera vez, confirma subir las recetas locales o recuperar los datos existentes en la nube.
+5. Abre la página → **Mi perfil → Mi cuenta y sincronización**, introduce tu correo y accede desde el enlace recibido. Al conectar, los datos locales y los de la nube se **unen** automáticamente (no se pierde nada).
 
 ### Importante
 - Sin configuración o sin iniciar sesión, la aplicación sigue usando `localStorage` y **no** está sincronizada.
 - Al acceder desde otro dispositivo con la misma cuenta, se descarga el mismo recetario.
 - Si hay diferencias entre datos locales y la nube, **no se sobrescriben automáticamente**: se pide confirmación. Exporta un JSON desde Mi perfil antes de recuperar datos de la nube.
-- La sincronización es una copia JSON completa de recetas/calendario/despensa/perfil, adecuada como primera etapa. No combina ediciones simultáneas entre dispositivos; la última guardada puede prevalecer.
+- La sincronización guarda un único documento JSON, pero **une los cambios elemento a elemento** (recetas, despensa, comidas, plan, compra, perfil): dos dispositivos pueden editar a la vez y, si tocan lo mismo, gana la modificación más reciente. Los borrados se propagan con «tumbas» que caducan a los 90 días. Lógica en `src/merge.js`.
 - Si el navegador está sin conexión, usa la exportación JSON como copia de seguridad. El estado de sincronización se muestra en **Mi perfil**.
 - GitHub almacena el código, **no** las recetas privadas.
 

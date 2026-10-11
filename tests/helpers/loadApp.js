@@ -12,7 +12,7 @@ export const APP_FILES = () => {
 export const NOW = '2026-10-12T10:00:00'; // lunes; las fixtures RAK cubren 12-14 oct
 
 /** Carga la app en jsdom con Supabase/Cloud falsos y reloj fijo. */
-export async function loadApp({ data, user = true, now = NOW } = {}) {
+export async function loadApp({ data, user = true, now = NOW, db = null } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', {
     url: 'https://nutribook.test/', runScripts: 'dangerously', pretendToBeVisual: true,
   });
@@ -28,25 +28,36 @@ export async function loadApp({ data, user = true, now = NOW } = {}) {
 
   const inject = (code) => { const s = w.document.createElement('script'); s.textContent = code; w.document.body.appendChild(s); };
   // reloj fijo (antes que cualquier script de la app)
-  inject(`(() => { const R = Date, fixed = new R(${JSON.stringify(now)}).getTime();
+  inject(`(() => { const R = Date; let fixed = new R(${JSON.stringify(now)}).getTime(); window.__setNow = (iso) => { fixed = new R(iso).getTime(); };
     class D extends R { constructor(...a) { a.length ? super(...a) : super(fixed); } static now() { return fixed; } }
     window.Date = D; })();`);
   if (data) w.localStorage.setItem('nutribook-local-v1', JSON.stringify(data));
 
   const saved = [];
-  w.NutriCloud = {
-    getClient: () => ({
-      from: () => ({ select: () => ({ in: async (_c, dates) => ({ data: fixture.filter((r) => dates.includes(r.menu_date)) }) }) }),
-      auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) },
-    }),
-    getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',
-    scheduleSave: (s) => saved.push(s), start: (o) => o.onReady(),
-  };
+  const rakQuery = () => ({ select: () => ({ in: async (_c, dates) => ({ data: fixture.filter((r) => dates.includes(r.menu_date)) }) }) });
+  if (db) {
+    // nube real (cloud-sync.js) contra una base falsa compartida entre «dispositivos»: db = { payload: null }
+    w.NUTRIBOOK_SUPABASE = { url: 'https://x.test', key: 'k' };
+    const client = {
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'u1', email: 'a@b.c' }, access_token: 't' } } }), onAuthStateChange: () => {}, signOut: async () => ({}) },
+      from: (t) => t !== 'nutribook_data' ? rakQuery() : {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: db.payload ? { payload: JSON.parse(JSON.stringify(db.payload)) } : null, error: null }) }) }),
+        upsert: async (row) => { db.payload = JSON.parse(JSON.stringify(row.payload)); db.writes = (db.writes || 0) + 1; return { error: null }; },
+      },
+    };
+    w.supabase = { createClient: () => client };
+  } else {
+    w.NutriCloud = {
+      getClient: () => ({ from: rakQuery, auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) } }),
+      getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',
+      scheduleSave: (s) => saved.push(s), start: (o) => o.onReady(),
+    };
+  }
   // mismos scripts y mismo orden que index.html (salvo config, CDN y cloud-sync, que se simulan)
   const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  const local = [...indexHtml.matchAll(/<script src="\.\/([^"]+)"/g)].map((m) => m[1]).filter((f) => !['supabase-config.js', 'cloud-sync.js'].includes(f));
+  const local = [...indexHtml.matchAll(/<script src="\.\/([^"]+)"/g)].map((m) => m[1]).filter((f) => f !== 'supabase-config.js' && (db || f !== 'cloud-sync.js'));
   for (const f of local) inject(fs.readFileSync(path.join(root, f), 'utf8'));
-  await sleep(50);
+  await sleep(db ? 300 : 50);
 
   const app = {
     w, errors, fetchCalls, saved,
@@ -56,6 +67,7 @@ export async function loadApp({ data, user = true, now = NOW } = {}) {
     text: () => (w.document.getElementById('view')?.textContent ?? '').replace(/\s+/g, ' '),
     async go(p, opts = '') { w.eval(`navigate(${JSON.stringify(p)}${opts ? ',' + opts : ''})`); await sleep(30); },
     async settle(ms = 300) { await sleep(ms); },
+    setNow: (iso) => w.__setNow(iso),
   };
   return app;
 }
