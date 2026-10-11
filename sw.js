@@ -20,6 +20,7 @@ const SHELL = [
   'src/core.js',
   'src/foods.js',
   'src/stats.js',
+  'src/recipe-iron.js',
   'src/absorption.js',
   'src/planner.js',
   'src/ui.js',

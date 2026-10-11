@@ -55,20 +55,22 @@ function viewRecipe(id) {
   const r = recipe(id);
   if (!r) return;
   const fe = ironVal(r.iron);
-  const src = { 'usda-estimate': '🔬 USDA', 'local-db': '🏠 base local', 'ai-estimate': '✨ IA', manual: '✏️ manual' }[r.ironSource] || '✏️ manual';
+  const src = { 'usda-estimate': '🔬 USDA', 'local-db': '🏠 base local', 'ai-estimate': '✨ IA', calc: '🧮 calculado', 'calc-partial': '🧮 parcial', manual: '✏️ manual' }[r.ironSource] || '✏️ manual';
+  const calc = computeRecipeIron(r);
   const conf = { high: 'alta confianza', medium: 'confianza media', low: 'estimación aproximada' };
   showModal(`${modalTop(`${h(r.emoji)} ${h(r.name)}`, `<div class="eyebrow">${h((r.categories || []).join(' · '))}</div>`)}
     ${r.description ? `<p>${h(r.description)}</p>` : ''}
     <div class="buttons"><span class="pill">◷ ${r.time} min</span><span class="pill">🍽 ${r.servings} raciones</span>
       ${fe !== null ? `<span class="pill fe ${ironLevel(fe, goalMeal())}">⚡ ${fmtMg(fe)} mg Fe/ración · ${src}</span>` : '<span class="pill">⚡ Hierro sin calcular</span>'}</div>
     ${r.nutrition ? `<p class="notice">✨ ${h(r.nutrition.provider || 'IA')} · ${conf[r.nutrition.confidence] || ''} · ${fmtMg(r.nutrition.estimatedRecipeIronMg)} mg en total · ${h(r.nutrition.notes)}</p>` : ''}
+    ${calc.rows.length ? ironBreakdown(calc) : ''}
     <div class="buttons" style="margin-top:14px"><button class="btn primary" ${on('click', 'openPlan', id)}>📅 Añadir al calendario</button><button class="btn" ${on('click', 'openEatRecipe', today(), id)}>✓ Lo he comido</button></div>
     <hr class="line">
     ${field('Escalar raciones', `<input type="number" min="1" value="${r.servings}" ${on('input', 'rescaleIngredients', id, '@value')}>`)}
     <div class="split recipe-detail"><div><h3>Ingredientes</h3><div id="ingredients-detail" style="white-space:pre-line;line-height:1.9">${h(ingredientText(r))}</div></div>
       <div><h3>Preparación</h3><ol>${(r.instructions || []).map((x) => `<li>${h(x)}</li>`).join('')}</ol></div></div>
     ${r.source ? `<p class="small muted">Fuente: ${/^https?:\/\//.test(r.source) ? `<a href="${h(r.source)}" target="_blank" rel="noopener">${h(r.source)}</a>` : h(r.source)}</p>` : ''}
-    <hr class="line"><div class="buttons"><button class="btn" ${on('click', 'openForm', id)}>Editar</button><button id="iron-llm-btn" class="btn" ${on('click', 'estimateIron', id)}>⚡ ${fe === null ? 'Calcular' : 'Recalcular'} hierro con IA</button>
+    <hr class="line"><div class="buttons"><button class="btn" ${on('click', 'openForm', id)}>Editar</button><button class="btn" ${on('click', 'calcIron', id)}>🧮 Calcular con ingredientes</button><button id="iron-llm-btn" class="btn" ${on('click', 'estimateIron', id)}>⚡ ${fe === null ? 'Calcular' : 'Recalcular'} hierro con IA</button>
       <button class="btn" ${on('click', 'duplicateRecipe', id)}>Duplicar</button><button class="btn danger" ${on('click', 'deleteRecipe', id)}>Eliminar</button></div>`);
 }
 function rescaleIngredients(id, n) { document.getElementById('ingredients-detail').innerText = scaledIngredients(id, Number(n)); }
@@ -123,9 +125,9 @@ function saveRecipe(form, id) {
   };
   const changedIngredients = old && ingredientText(old) !== ingredientText(obj);
   state.recipes = id ? state.recipes.map((r) => r.id === id ? obj : r) : [...state.recipes, obj];
+  const needsAi = autoIron(obj, changedIngredients);
   save(); modal = null; render();
-  // Solo se estima con IA si no hay valor, o si el valor era de IA y los ingredientes cambiaron
-  if (iron === null || (obj.ironSource === 'ai-estimate' && changedIngredients)) estimateIron(obj.id, true);
+  if (needsAi) estimateIron(obj.id, true);
   toast('Receta guardada');
 }
 
@@ -172,4 +174,38 @@ function parseImport() {
   const steps = (end >= 0 ? rows.slice(end + 1) : []).map((x) => x.replace(/^\d+[.)-]\s*/, ''));
   // Se abre el formulario con un borrador: si se cancela, no queda ninguna receta a medias
   openForm('', { name: rows[0], description: 'Importada a partir de texto; revisa los datos.', emoji: '🥗', categories: ['Comidas'], ingredients: parseIngredients(ing.join('\n')), instructions: steps, servings: 4, time: 30, iron: '' });
+}
+
+// ───────── Hierro calculado con los ingredientes (con la IA solo como repuesto) ─────────
+/** Rellena el hierro de una receta recién guardada sin tocar nunca un valor puesto a mano. Devuelve true si hace falta pedirlo a la IA. */
+function autoIron(r, changedIngredients) {
+  const fromCalc = String(r.ironSource || '').startsWith('calc');
+  if (!(r.iron === null || ((fromCalc || r.ironSource === 'ai-estimate') && changedIngredients))) return false;
+  const res = computeRecipeIron(r);
+  if (res.coverage >= IRON_CALC_TRUST) { applyCalc(r, res); return false; }
+  if (window.NutriCloud?.getUser?.()) return true;                       // pocos ingredientes reconocidos: la IA completa el cálculo
+  if (res.rows.length) applyCalc(r, res);                                // sin sesión no hay IA: se guarda el cálculo parcial
+  return false;
+}
+function applyCalc(r, res) {
+  const full = res.coverage >= IRON_CALC_TRUST;
+  r.iron = res.perServing; r.ironSource = full ? 'calc' : 'calc-partial';
+  r.nutrition = { provider: 'NutriBook', estimatedRecipeIronMg: res.total, confidence: full ? 'high' : 'low', checkedAt: new Date().toISOString(),
+    notes: full ? 'Suma del hierro de cada ingrediente según la base de alimentos.' : `Solo se reconocieron ${res.rows.length} de ${res.rows.length + res.unmatched.length} ingredientes: es un mínimo.` };
+}
+/** Botón «Calcular con ingredientes»: reemplaza el valor actual, con opción de deshacer. */
+function calcIron(id) {
+  const r = recipe(id);
+  if (!r) return;
+  const res = computeRecipeIron(r);
+  if (!res.rows.length) { toast('No reconozco ningún ingrediente con cantidad. Revisa la lista o usa el cálculo con IA.', 'warn'); return; }
+  const before = { iron: r.iron, ironSource: r.ironSource, nutrition: r.nutrition };
+  applyCalc(r, res); save(); viewRecipe(id);
+  toast(`Hierro calculado: ${fmtMg(r.iron)} mg por ración`, '', { label: 'Deshacer', run: () => { Object.assign(r, before); save(); viewRecipe(id); } });
+}
+function ironBreakdown(calc) {
+  return `<details class="breakdown"><summary>Ver cómo se calcula el hierro (${fmtMg(calc.total)} mg en total)</summary>
+    <div class="breakdown-rows">${calc.rows.map((x) => `<div class="entry"><span class="entry-name">${h(x.name)} <small class="muted">→ ${h(x.food)} · ${x.grams} g</small></span><span class="entry-fe">${fmtMg(x.mg)} mg</span></div>`).join('')}
+    ${calc.unmatched.map((x) => `<div class="entry"><span class="entry-name">${h(x.name)} <small class="muted">· ${h(x.reason)}</small></span><span class="entry-fe">?</span></div>`).join('')}</div>
+    <p class="small muted">Cantidades en crudo salvo que se indique «cocido». Estimación con tablas de composición: varía según marca y cocinado.</p></details>`;
 }

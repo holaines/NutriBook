@@ -442,3 +442,5 @@ body.modal-open .fab { display: none; }
 }
 
 .card + .card, .card + .notice { margin-top: 16px; }
+
+.breakdown { margin: 12px 0; } .breakdown summary { cursor: pointer; font-weight: 650; color: var(--rose); } .breakdown-rows { margin-top: 8px; }
