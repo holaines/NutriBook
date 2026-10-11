@@ -22,22 +22,24 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  # Comprobación de tipos de las Edge Functions (informativa: no bloquea el despliegue)
+  # Comprobación de tipos de las Edge Functions: bloquea el despliegue si fallan
   check-functions:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      # El package.json de la raíz es solo para los tests: Deno debe ignorarlo
       - run: deno check supabase/functions/*/index.ts
+        env:
+          DENO_NO_PACKAGE_JSON: '1'
 
   # Déploie la table rak_menus et la Edge Function rak-fetch
   # Nécessite le secret SUPABASE_ACCESS_TOKEN (token personnel depuis
   # https://supabase.com/dashboard/account/tokens)
   deploy-supabase:
-    needs: test
+    needs: [test, check-functions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +89,7 @@ jobs:
         run: supabase functions deploy recipe-import --project-ref cyewzqlkjbvsllotaywu
 
   deploy-pages:
-    needs: test
+    needs: [test, check-functions]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

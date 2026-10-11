@@ -52,6 +52,16 @@
     return changed;
   }
 
+  const isEmpty = (v) => v === '' || v === null || v === undefined || v === false;
+  /** Perfil: gana el lado con la marca más reciente. En un empate (p. ej. un dispositivo nuevo con el perfil por defecto) manda el perfil ya completado, y si no, el local rellenando los huecos con lo remoto. */
+  function mergeProfile(pa, pb, ta, tb) {
+    if (ta !== tb) return ta > tb ? { ...pb, ...pa } : { ...pa, ...pb };
+    if (Boolean(pa.onboarded) !== Boolean(pb.onboarded)) return pa.onboarded ? { ...pb, ...pa } : { ...pa, ...pb };
+    const out = { ...pb, ...pa };
+    for (const k of Object.keys(pb)) if (isEmpty(pa[k]) && !isEmpty(pb[k])) out[k] = pb[k];
+    return out;
+  }
+
   /** Une dos estados. Neutral respecto al orden salvo empates exactos (gana `a`, la copia local). */
   function mergeStates(a, b, now = Date.now()) {
     a = a || {}; b = b || {};
@@ -89,8 +99,7 @@
       }
       out[m] = res;
     }
-    const pa = String(sa.stamps.profile || ''), pb = String(sb.stamps.profile || '');
-    out.profile = { ...(pa >= pb ? { ...(b.profile || {}), ...(a.profile || {}) } : { ...(a.profile || {}), ...(b.profile || {}) }) };
+    out.profile = mergeProfile(a.profile || {}, b.profile || {}, String(sa.stamps.profile || ''), String(sb.stamps.profile || ''));
 
     for (const [k, t] of Object.entries(deleted)) if (now - Date.parse(t) > TOMB_TTL) delete deleted[k];
     out.sync = { deleted, stamps };

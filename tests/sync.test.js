@@ -112,3 +112,22 @@ test('guardado automático: tras editar, la nube se actualiza sola (debounce) un
   assert.deepEqual(names(db.payload), ['Local', 'Remota']);
   assert.deepEqual(names(A.eval(`state`)), ['Local', 'Remota']);
 });
+
+test('perfil: un dispositivo nuevo (perfil por defecto) no borra el perfil completo de la nube, en ningún sentido', async () => {
+  const app = await loadApp();
+  const fresh = { profile: { name: '', ironDailyGoal: 16, ironMealGoal: 5, sex: '', age: '', onboarded: false } };
+  const cloud = { profile: { name: 'Inès', ironDailyGoal: 18, ironMealGoal: 6, sex: 'F', age: 28, onboarded: true } };
+  assert.deepEqual(merge(app, fresh, cloud).profile, cloud.profile);
+  assert.deepEqual(merge(app, cloud, fresh).profile, cloud.profile);
+});
+
+test('perfil: con marcas distintas gana la más reciente; en empate sin completar, lo local rellena con lo remoto', async () => {
+  const app = await loadApp();
+  const a = { profile: { name: 'Vieja', ironDailyGoal: 16, onboarded: true }, sync: { deleted: {}, stamps: { profile: T(1) } } };
+  const b = { profile: { name: 'Nueva', ironDailyGoal: 12, onboarded: true }, sync: { deleted: {}, stamps: { profile: T(5) } } };
+  assert.deepEqual(merge(app, a, b).profile, b.profile); assert.deepEqual(merge(app, b, a).profile, b.profile);
+  const cleared = { profile: { name: '', onboarded: true }, sync: { deleted: {}, stamps: { profile: T(9) } } };
+  assert.equal(merge(app, a, cleared).profile.name, '', 'borrar un campo a propósito (marca más nueva) se respeta');
+  const x = { profile: { name: 'Local', notes: '', onboarded: false } }, y = { profile: { name: '', notes: 'remota', onboarded: false } };
+  assert.deepEqual([merge(app, x, y).profile.name, merge(app, x, y).profile.notes], ['Local', 'remota']);
+});
