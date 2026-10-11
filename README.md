@@ -10,7 +10,7 @@ Abre la carpeta y ejecuta **Live Server** sobre `index.html`. No necesitas Node 
 
 1. Crea un proyecto en https://supabase.com y espera a que esté activo.
 2. Abre **SQL Editor**, pega el contenido de [supabase.sql](./supabase.sql) y ejecútalo. Se crea la tabla `nutribook_data` con **Row Level Security** para que cada persona solo pueda leer/escribir sus datos.
-3. Abre **Project Settings → API** (o **Connect** según la interfaz). Copia **Project URL** y la **publishable key** (o la clave pública `anon` heredada) a [config.js](./config.js). Estas dos son públicas; **nunca** compartas una clave `service_role` o `secret`.
+3. Abre **Project Settings → API** (o **Connect** según la interfaz). Copia **Project URL** y la **publishable key** (o la clave pública `anon` heredada) a [supabase-config.js](./supabase-config.js). Estas dos son públicas; **nunca** compartas una clave `service_role` o `secret`.
 4. En **Authentication → URL Configuration**, añade la URL de tu web desplegada a los **Redirect URLs**. Para usar enlaces de acceso desde correo, se recomienda publicar la web bajo HTTPS (por ejemplo GitHub Pages). Si utilizas localhost, añade también la URL local correspondiente.
 5. Abre la página → **Mi perfil → Mi cuenta y sincronización**, introduce tu correo y accede desde el enlace recibido. La primera vez, confirma subir las recetas locales o recuperar los datos existentes en la nube.
 
@@ -30,14 +30,18 @@ Abre la carpeta y ejecuta **Live Server** sobre `index.html`. No necesitas Node 
 - Todo forma parte del JSON local y de la carga de Supabase existente cuando haya una sesión y una sincronización activas.
 - La conexión automática OAuth/Developer Program con Garmin y las recomendaciones nutricionales basadas en entrenamientos aún **no** están integradas.
 
-## Estimar hierro mediante USDA FoodData Central
+## Hierro: dónde se ve y cómo se calcula
 
-Abre **Recetas → Ver receta → Calcular hierro por ingredientes**. Busca cada alimento, comprueba la coincidencia exacta (crudo/cocido/seco), introduce los gramos comestibles, elige un resultado oficial USDA y pulsa **Guardar cálculo**. La app calcula:
+- **Inicio**: anillo del día (comido / previsto / objetivo), comidas de hoy con botón «Marcar comido» y gráfico de la semana.
+- **Calendario**: cada día muestra su barra de hierro (fuerte = comido, claro = previsto). Cada receta planificada tiene su mg y un botón «Comido».
+- **Mi hierro**: totales de la semana, días con objetivo cumplido y detalle por día. Los objetivos (16 mg/día y 5 mg/comida por defecto) se cambian en **Mi perfil**.
+- El hierro de una receta se escribe a mano o lo estima la IA (Gemini) desde **Ver receta → Calcular hierro con IA**. La clave de Gemini **nunca** llega al navegador: la usa la Edge Function `iron-estimate` (solo con sesión iniciada).
 
-`hierro por ración = sumatoria(gramos ingrediente × hierro mg/100 g) / 100 / raciones`.
+## Menú del RAK
 
-Solo guarda un total en `iron` cuando **todos los ingredientes** tienen datos de hierro y peso en gramos. Si falta información, muestra un subtotal marcado **parcial**, que no se incorpora al seguimiento. Un valor ausente no equivale a cero. Se guardan las elecciones y referencias USDA (ID FDC) en el JSON/Supabase.
+La Edge Function `rak-fetch` lee la web del RAK (semana actual y siguiente), guarda los platos en `rak_menus` y analiza gluten y hierro con Gemini por lotes pequeños. La app carga el menú sola al abrir el calendario; si falta o tiene más de 24 h, lo pide en segundo plano. El botón «Actualizar» fuerza una nueva lectura.
 
-Se usa `DEMO_KEY` de USDA únicamente para pruebas; está sujeto a límites de uso y puede no responder. Para producción, usa un proxy/función de servidor con clave privada propia (no publiques esa clave en JavaScript). No hay conversión automática de cucharadas, tazas, unidades o medidas caseras, ni corrección por retención durante la cocción. Cambiar ingredientes o raciones en «Editar receta» invalida el cálculo y es necesario revisarlo.
+## Despliegue (automático al hacer push a `main`)
 
-Fuente: https://fdc.nal.usda.gov/api-guide/
+El workflow `.github/workflows/deploy.yml` ejecuta `rak.sql`, publica las funciones `rak-fetch` e `iron-estimate` y despliega GitHub Pages.
+Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN` y `GEMINI_KEY` (este último solo se copia a los secretos de Supabase, no a la web).

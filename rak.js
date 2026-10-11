@@ -1,233 +1,191 @@
-/* NutriBook: module RAK — menus du restaurant universitaire. */
+/* NutriBook: módulo RAK — menús del restaurante universitario (lectura en Supabase + refresco vía Edge Function). */
 (function () {
   'use strict';
 
-  // Cache en memoire: cle = "YYYY-MM-DD|service"
+  // Caché en memoria: clave = "YYYY-MM-DD|service"  (service = dejeuner | diner)
   const cache = {};
-  let lastFetch = null;
+  // Última fecha de actualización (fetched_at) vista por día: "YYYY-MM-DD" -> ISO
+  const fetchedByDate = {};
 
-  function getClient() {
-    return window.NutriCloud?.getClient?.() ?? null;
-  }
+  const getClient = () => window.NutriCloud?.getClient?.() ?? null;
+  const isIso = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
 
-  // Charge les plats RAK pour une liste de dates ISO (semaine visible)
-  async function loadWeek(weekDates) {
+  // Carga los platos de una lista de fechas ISO. Devuelve { count, fetchedAt }.
+  async function loadWeek(dates) {
     const client = getClient();
-    if (!client) return;
+    if (!client) throw new Error('Supabase no está configurado');
 
-    const { data, error } = await client
-      .from('rak_menus')
-      .select('*')
-      .in('menu_date', weekDates);
+    const { data, error } = await client.from('rak_menus').select('*').in('menu_date', dates);
+    if (error) throw new Error(error.message);
 
-    if (error) {
-      console.warn('RAK loadWeek error:', error.message);
-      return;
-    }
-
-    // Vider le cache pour ces dates
-    for (const d of weekDates) {
+    for (const d of dates) {
       delete cache[d + '|dejeuner'];
       delete cache[d + '|diner'];
+      delete fetchedByDate[d];
     }
-
-    // Remplir le cache
-    for (const dish of (data || [])) {
+    for (const dish of data || []) {
       const key = dish.menu_date + '|' + dish.service;
-      if (!cache[key]) cache[key] = [];
-      cache[key].push(dish);
+      (cache[key] = cache[key] || []).push(dish);
+      if (!fetchedByDate[dish.menu_date] || dish.fetched_at > fetchedByDate[dish.menu_date]) {
+        fetchedByDate[dish.menu_date] = dish.fetched_at;
+      }
     }
-
-    lastFetch = new Date();
+    return weekInfo(dates);
   }
 
-  // Retourne les plats du jour/service (null = pas encore chargé)
+  // Resumen de lo que hay en caché para unas fechas: { count, fetchedAt }
+  function weekInfo(dates) {
+    let count = 0, fetchedAt = null;
+    for (const d of dates) {
+      count += (cache[d + '|dejeuner'] || []).length + (cache[d + '|diner'] || []).length;
+      if (fetchedByDate[d] && (!fetchedAt || fetchedByDate[d] > fetchedAt)) fetchedAt = fetchedByDate[d];
+    }
+    return { count, fetchedAt };
+  }
+
+  // Platos del día/servicio. null = día sin datos cargados.
   function getDay(date, service) {
     const key = date + '|' + service;
     return Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null;
   }
 
-  // Calcule le statut effectif d'un item : confirmed_gf > acceptable > no_option
-  // - confirmed_gf : gluten_status confirmed_gf
-  // - acceptable   : contains_gluten MAIS (partial_gf=true OU gluten_minor=true)
-  //                  OU gluten_status unknown
-  // - no_option    : contains_gluten ET partial_gf=false ET gluten_minor=false
+  // Estado efectivo de un plato: confirmed_gf > acceptable > no_option
+  //  - acceptable: contiene gluten pero evitable (partial_gf) o mínimo (gluten_minor), o estado desconocido
   function itemEffective(d) {
-    if (!d) return 'confirmed_gf'; // absence = neutre
+    if (!d) return 'confirmed_gf';
     if (d.gluten_status === 'confirmed_gf') return 'confirmed_gf';
-    if (d.gluten_status === 'contains_gluten') {
-      return (d.partial_gf || d.gluten_minor) ? 'acceptable' : 'no_option';
-    }
-    return 'acceptable'; // unknown -> traité comme acceptable (incertain)
+    if (d.gluten_status === 'contains_gluten') return (d.partial_gf || d.gluten_minor) ? 'acceptable' : 'no_option';
+    return 'acceptable';
   }
 
-  // Regroupe les plats par combo : plat1+accompagnement1, plat2+accompagnement2, etc.
-  // Retourne [{number, plat, accompagnement, dishes, iron_total, gluten_status, effective_status, suggestion}]
+  // Agrupa plat{N} + accompagnement{N} en combos. null si no hay combos.
   function getCombos(date, service) {
     const dishes = getDay(date, service);
     if (!dishes) return null;
 
-    var numbers = [];
-    dishes.forEach(function (d) {
-      var m = (d.dish_category || '').match(/^(?:plat|accompagnement)(\d+)$/);
-      if (m && numbers.indexOf(m[1]) === -1) numbers.push(m[1]);
+    const numbers = [];
+    dishes.forEach((d) => {
+      const m = (d.dish_category || '').match(/^(?:plat|accompagnement)(\d+)$/);
+      if (m && !numbers.includes(m[1])) numbers.push(m[1]);
     });
-    numbers.sort();
+    numbers.sort((a, b) => Number(a) - Number(b));
 
-    var combos = numbers.map(function (n) {
-      var plat = dishes.find(function (d) { return d.dish_category === 'plat' + n; }) || null;
-      var acc  = dishes.find(function (d) { return d.dish_category === 'accompagnement' + n; }) || null;
-      var items = [plat, acc].filter(Boolean);
-      var iron = items.reduce(function (s, d) { return s + (Number(d.iron_mg_estimated) || 0); }, 0);
+    const combos = numbers.map((n) => {
+      const plat = dishes.find((d) => d.dish_category === 'plat' + n) || null;
+      const acc = dishes.find((d) => d.dish_category === 'accompagnement' + n) || null;
+      const items = [plat, acc].filter(Boolean);
+      const iron = items.reduce((s, d) => s + (Number(d.iron_mg_estimated) || 0), 0);
 
-      // Statut effectif global du combo = le pire des items
-      var statuses = items.map(itemEffective);
-      var effective;
-      if (statuses.every(function (s) { return s === 'confirmed_gf'; })) {
-        effective = 'confirmed_gf';
-      } else if (statuses.indexOf('no_option') === -1) {
-        effective = 'acceptable';
-      } else {
-        effective = 'no_option';
-      }
-
-      // Agréger les suggestions
-      var suggestions = items
-        .filter(function (d) { return d && d.partial_gf && d.partial_gf_suggestion; })
-        .map(function (d) { return d.partial_gf_suggestion; });
-
-      // Statut legacy pour compatibilité
-      var hasGluten = items.some(function (d) { return d.gluten_status === 'contains_gluten'; });
-      var allGF = items.length > 0 && items.every(function (d) { return d.gluten_status === 'confirmed_gf'; });
+      const statuses = items.map(itemEffective);
+      const effective = statuses.every((s) => s === 'confirmed_gf') ? 'confirmed_gf'
+        : statuses.includes('no_option') ? 'no_option' : 'acceptable';
 
       return {
         number: n,
-        plat: plat,
-        accompagnement: acc,
-        dishes: items,
+        plat, accompagnement: acc, dishes: items,
         iron_total: Math.round(iron * 10) / 10,
-        gluten_status: hasGluten ? 'contains_gluten' : (allGF ? 'confirmed_gf' : 'unknown'),
+        iron_known: items.some((d) => d.iron_mg_estimated != null),
         effective_status: effective,
-        suggestions: suggestions,
+        // algún plato sin analizar (o análisis fallido): el resultado es provisional
+        uncertain: items.some((d) => d.gluten_status === 'unknown'),
+        suggestions: items.filter((d) => d.partial_gf && d.partial_gf_suggestion).map((d) => d.partial_gf_suggestion),
       };
     });
-
     return combos.length ? combos : null;
   }
 
-  // Meilleur combo : priorité confirmed_gf > acceptable, fer max dans chaque niveau
+  // Mejor combo: confirmed_gf antes que acceptable; dentro de cada nivel, el de más hierro.
   function getBestGlutenFreeCombo(date, service) {
-    var combos = getCombos(date, service);
+    const combos = getCombos(date, service);
     if (!combos) return null;
-    var gf = combos.filter(function (c) { return c.effective_status === 'confirmed_gf'; });
-    if (gf.length) {
-      return gf.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
-    }
-    var ok = combos.filter(function (c) { return c.effective_status === 'acceptable'; });
-    if (ok.length) {
-      return ok.slice().sort(function (a, b) { return (b.iron_total || 0) - (a.iron_total || 0); })[0];
+    const byIron = (a, b) => (b.iron_total || 0) - (a.iron_total || 0);
+    for (const level of ['confirmed_gf', 'acceptable']) {
+      const list = combos.filter((c) => c.effective_status === level);
+      if (list.length) return list.sort(byIron)[0];
     }
     return null;
   }
 
-  // Meilleur plat sans gluten (fer max), ou null — conservé pour compatibilité
-  function getBestGlutenFreeOption(date, service) {
-    var combo = getBestGlutenFreeCombo(date, service);
-    return combo ? (combo.plat || combo.dishes[0] || null) : null;
-  }
-
-  // Appelle la Edge Function pour scraper + analyser le RAK, puis vide le cache
-  // weekStart : date ISO du lundi de la semaine visible (ex: "2026-10-12")
-  async function refresh(weekStart) {
+  // Pide a la Edge Function que lea la web del RAK y analice los platos nuevos.
+  // weekStarts: lunes ISO de las semanas a traer (máx. 3). Devuelve el informe del servidor.
+  async function refresh(weekStarts) {
     const client = getClient();
     const cfg = window.NUTRIBOOK_SUPABASE;
-    if (!client || !cfg?.url) throw new Error('Supabase non configuré');
+    if (!client || !cfg?.url) throw new Error('Supabase no está configurado');
+    const starts = (Array.isArray(weekStarts) ? weekStarts : [weekStarts]).filter(isIso);
 
     const { data: sessData } = await client.auth.getSession();
     const token = sessData?.session?.access_token;
+    const headers = { 'Content-Type': 'application/json', apikey: cfg.key };
+    headers.Authorization = 'Bearer ' + (token || cfg.key);
 
-    const headers = { 'Content-Type': 'application/json', 'apikey': cfg.key };
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
-    const res = await fetch(cfg.url + '/functions/v1/rak-fetch', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ weekStart: weekStart || null }),
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error || 'Erreur Edge Function rak-fetch');
-
-    // Vider tout le cache pour forcer le rechargement
-    for (const key of Object.keys(cache)) delete cache[key];
-    lastFetch = new Date();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 170000);
+    let res, text;
+    try {
+      res = await fetch(cfg.url + '/functions/v1/rak-fetch', {
+        method: 'POST', headers, signal: ctrl.signal,
+        body: JSON.stringify({ weekStarts: starts }),
+      });
+      text = await res.text();
+    } catch (e) {
+      throw new Error(e.name === 'AbortError' ? 'El servidor tardó demasiado. Vuelve a intentarlo: el progreso se conserva.' : e.message);
+    } finally {
+      clearTimeout(timer);
+    }
+    let body = {};
+    try { body = JSON.parse(text); } catch { /* respuesta no JSON (timeout de la plataforma) */ }
+    if (!res.ok) {
+      throw new Error(body.error || (res.status === 504 || res.status === 546
+        ? 'El servidor tardó demasiado. Vuelve a intentarlo: el progreso se conserva.'
+        : 'Error ' + res.status + ' en rak-fetch'));
+    }
     return body;
   }
 
-  // Enregistre un repas RAK consommé dans state.rakConsumed
+  // ───────── Comidas RAK confirmadas (state.rakConsumed)
+  const appState = () => window.NutriBook?.getState?.();
+
   function confirmMeal(date, service, dishes) {
     const nb = window.NutriBook;
     if (!nb) return;
     const state = nb.getState();
-    state.rakConsumed = state.rakConsumed || [];
-
-    const ironTotal = dishes.reduce(function (n, d) {
-      return n + (Number(d.iron_mg_estimated) || 0);
-    }, 0);
-
-    // Remplacer une éventuelle entrée existante pour ce date+service
-    state.rakConsumed = state.rakConsumed.filter(function (x) {
-      return !(x.date === date && x.service === service);
-    });
-
+    const iron = dishes.reduce((n, d) => n + (Number(d.iron_mg_estimated) || 0), 0);
+    state.rakConsumed = (state.rakConsumed || []).filter((x) => !(x.date === date && x.service === service));
     state.rakConsumed.push({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-      date: date,
-      service: service,
-      dishes: dishes.map(function (d) {
-        return { dish_id: d.dish_id, dish_name: d.dish_name, category: d.dish_category };
-      }),
-      iron_total_mg: Math.round(ironTotal * 10) / 10,
+      date, service,
+      dishes: dishes.map((d) => ({ dish_id: d.dish_id, dish_name: d.dish_name, category: d.dish_category })),
+      iron_total_mg: Math.round(iron * 10) / 10,
       confirmed_at: new Date().toISOString(),
     });
-
     nb.save();
   }
 
-  // Repas RAK confirmés pour une date
-  function getConsumed(date) {
-    const state = window.NutriBook?.getState?.();
-    return (state?.rakConsumed || []).filter(function (x) { return x.date === date; });
+  function unconfirmMeal(date, service) {
+    const nb = window.NutriBook;
+    if (!nb) return;
+    const state = nb.getState();
+    state.rakConsumed = (state.rakConsumed || []).filter((x) => !(x.date === date && x.service === service));
+    nb.save();
   }
 
-  // Objectifs fer depuis le profil
+  const getConsumed = (date) => (appState()?.rakConsumed || []).filter((x) => x.date === date);
+
   function ironGoal() {
-    const p = window.NutriBook?.getState?.()?.profile || {};
+    const p = appState()?.profile || {};
     return { daily: Number(p.ironDailyGoal) || 16, meal: Number(p.ironMealGoal) || 5 };
   }
 
-  // Recettes sans gluten triées par fer desc (depuis la bibliothèque)
+  // Recetas de la biblioteca con hierro conocido, de mayor a menor.
   function suggestRecipes() {
-    const state = window.NutriBook?.getState?.();
-    const recipes = state?.recipes || [];
-    return recipes
-      .filter(function (r) { return r.iron != null && Number(r.iron) > 0; })
-      .slice()
-      .sort(function (a, b) { return (Number(b.iron) || 0) - (Number(a.iron) || 0); });
+    return (appState()?.recipes || [])
+      .filter((r) => r.iron != null && Number(r.iron) > 0)
+      .sort((a, b) => Number(b.iron) - Number(a.iron));
   }
 
-  function getLastFetch() { return lastFetch; }
-
   window.RAK = {
-    loadWeek: loadWeek,
-    getDay: getDay,
-    getCombos: getCombos,
-    getBestGlutenFreeCombo: getBestGlutenFreeCombo,
-    getBestGlutenFreeOption: getBestGlutenFreeOption,
-    refresh: refresh,
-    confirmMeal: confirmMeal,
-    getConsumed: getConsumed,
-    ironGoal: ironGoal,
-    suggestRecipes: suggestRecipes,
-    getLastFetch: getLastFetch,
+    loadWeek, weekInfo, getDay, getCombos, getBestGlutenFreeCombo,
+    refresh, confirmMeal, unconfirmMeal, getConsumed, ironGoal, suggestRecipes,
   };
 })();

@@ -35,3 +35,6 @@ ALTER TABLE public.rak_menus
   ADD COLUMN IF NOT EXISTS partial_gf boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS partial_gf_suggestion text,
   ADD COLUMN IF NOT EXISTS gluten_minor boolean NOT NULL DEFAULT false;
+
+-- Índice para cargar rápido la semana visible
+CREATE INDEX IF NOT EXISTS rak_menus_date_idx ON public.rak_menus (menu_date);

@@ -5,13 +5,13 @@
   const active = /^https:\/\//.test(config.url || '') && Boolean(config.key);
   let client = null, user = null, readLocal = null, applyCloud = null;
   let ready = false, saving = false, pending = null, timer = null, status = '';
-  const note = s => { status=s; const el=document.getElementById('cloud-status'); if(el) el.textContent=s; };
+  const note = s => { status=s; const el=document.getElementById('cloud-status'); if(el) el.textContent=s; const slot=document.getElementById('sync-slot'); if(slot) slot.innerHTML=syncBadge(); };
   const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\x27':'&#39;'}[c]));
   if(active && window.supabase?.createClient) {
     client = window.supabase.createClient(config.url,config.key,{auth:{persistSession:true,autoRefreshToken:true}});
   }
   function panel(){
-    if (!active) return '<div class="card" style="margin-bottom:20px"><h3>&#x2601;&#xFE0F; Sincronización en la nube</h3><p>Para activarla, completa <code>config.js</code> con la URL y la clave pública de tu proyecto Supabase y ejecuta <code>supabase.sql</code>.</p><p class="muted small">Mientras tanto las recetas siguen guardadas únicamente en este navegador. Exporta una copia JSON.</p></div>';
+    if (!active) return '<div class="card" style="margin-bottom:20px"><h3>&#x2601;&#xFE0F; Sincronización en la nube</h3><p>Para activarla, completa <code>supabase-config.js</code> con la URL y la clave pública de tu proyecto Supabase y ejecuta <code>supabase.sql</code>.</p><p class="muted small">Mientras tanto las recetas siguen guardadas únicamente en este navegador. Exporta una copia JSON.</p></div>';
     if(!client) return '<div class="card">No se pudo cargar Supabase. Revisa la conexión a Internet.</div>';
     const meta = user?.user_metadata || {};
     return '<div class="card" style="margin-bottom:20px"><h3>&#x2601;&#xFE0F; Mi cuenta y sincronización</h3><p id="cloud-status">'+esc(status || (user?'Sesión iniciada':'Sin sesión'))+'</p>'+(user
@@ -78,7 +78,7 @@
   }
   async function signIn(){
     const email=document.getElementById('cloud-email')?.value?.trim();
-    if(!email){alert('Introduce tu correo.');return}
+    if(!email){note('Introduce tu correo.');return}
     const redirectTo=location.protocol==='https:'?location.origin+location.pathname:undefined;
     const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo}});
     note(error?'Error: '+error.message:'Revisa tu correo electrónico para acceder.');
