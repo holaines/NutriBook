@@ -4,7 +4,7 @@
   const config = window.NUTRIBOOK_SUPABASE || {};
   const active = /^https:\/\//.test(config.url || '') && Boolean(config.key);
   let client = null, user = null, readLocal = null, applyCloud = null;
-  let ready = false, saving = false, pending = null, timer = null, status = '';
+  let ready = false, saving = false, pending = null, timer = null, status = '', dirty = false;
   const note = s => { status=s; const el=document.getElementById('cloud-status'); if(el) el.textContent=s; const slot=document.getElementById('sync-slot'); if(slot) slot.innerHTML=syncBadge(); };
   const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\x27':'&#39;'}[c]));
   if(active && window.supabase?.createClient) {
@@ -66,13 +66,14 @@
     saving=true;
     try {
       while(pending){const current=pending;pending=null;await write(current)}
+      dirty=false;
       note('\u2713 Cambios guardados en Supabase.');
-    }catch(e){note('\u26a0 Error al sincronizar: '+e.message+'. Exporta un JSON de respaldo.')}
+    }catch(e){dirty=true;note('\u26a0 Sin conexión o error al sincronizar ('+e.message+'). Se reintentará solo; tus cambios están a salvo en este dispositivo.')}
     finally{saving=false}
   }
   function scheduleSave(value){
     if(!ready||!user)return;
-    pending=JSON.parse(JSON.stringify(value));
+    dirty=true;pending=JSON.parse(JSON.stringify(value));
     clearTimeout(timer);timer=setTimeout(drain,700);
     note('Guardando cambios en la nube\u2026');
   }
@@ -95,6 +96,8 @@
     if(status.includes('Guardando'))return'<div class="sync-badge saving">'+img+'\u2601 Guardando\u2026</div>';
     return'<div class="sync-badge ok">'+img+'\u2601 '+esc(user.email?.split('@')[0]||'')+'</div>';
   }
+  // Cola de escrituras: un único «pendiente» (siempre el estado más reciente, así no se duplican) que se reintenta al volver la red.
+  window.addEventListener('online',()=>{if(dirty&&ready&&user&&!saving){pending=JSON.parse(JSON.stringify(readLocal()));drain()}});
   window.NBEvents?.register({
     cloudSyncNow: (btn) => { btn.disabled=true;btn.textContent='Sincronizando\u2026';syncNow().finally(()=>{btn.disabled=false;btn.textContent='Sincronizar ahora'}) },
     cloudSignOut: () => signOut(),

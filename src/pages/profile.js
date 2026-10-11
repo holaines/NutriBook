@@ -20,6 +20,7 @@ function profile() {
     ${field('Objetivo de hierro por comida (mg)', `<input name="ironMealGoal" type="number" min="1" step="0.5" value="${Number(p.ironMealGoal) || 5}">`)}
     ${field('Preferencias, alergias y notas', `<textarea name="notes">${h(p.notes)}</textarea>`, 'wide')}</div>
     <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar perfil</button><button class="btn" type="button" ${on('click', 'openOnboarding', 1)}>Calcular mi objetivo recomendado</button></div></form></div>
+  ${installPrompt ? `<div class="card"><div class="card-title">Instalar NutriBook</div><p class="muted small">Ábrela como una app, a pantalla completa y también sin conexión.</p><button class="btn primary" ${on('click', 'installApp')}>Instalar en este dispositivo</button></div>` : ''}
   <div class="section-head"><h2>Apariencia</h2></div>
   <div class="card"><div class="seg" role="radiogroup" aria-label="Tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([v, l]) => `<button role="radio" aria-checked="${NBTheme.get() === v}" class="${NBTheme.get() === v ? 'on' : ''}" ${on('click', 'setTheme', v)}>${l}</button>`).join('')}</div>
     <p class="small muted">Se recuerda solo en este dispositivo. «Automático» sigue el modo de tu sistema.</p></div>

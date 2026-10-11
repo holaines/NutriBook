@@ -25,6 +25,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.NutriBook = { getState: () => state, save };
+
+// App instalable y disponible sin conexión
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (page === 'Perfil') renderMain(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; if (page === 'Perfil') renderMain(); });
+function installApp() { if (!installPrompt) return; installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; renderMain(); }); }
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => { /* sin SW la app sigue funcionando en línea */ }));
+}
 if (!window.NutriCloud) authLoading = false;
 render();
 setTimeout(() => { if (authLoading) { authLoading = false; render(); } }, 6000); // red lenta: no dejar la pantalla de carga

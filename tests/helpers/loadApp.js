@@ -43,8 +43,8 @@ export async function loadApp({ data, user = true, now = NOW, db = null, onboard
     const client = {
       auth: { getSession: async () => ({ data: { session: { user: { id: 'u1', email: 'a@b.c' }, access_token: 't' } } }), onAuthStateChange: () => {}, signOut: async () => ({}) },
       from: (t) => t !== 'nutribook_data' ? rakQuery() : {
-        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: db.payload ? { payload: JSON.parse(JSON.stringify(db.payload)) } : null, error: null }) }) }),
-        upsert: async (row) => { db.payload = JSON.parse(JSON.stringify(row.payload)); db.writes = (db.writes || 0) + 1; return { error: null }; },
+        select: () => ({ eq: () => ({ maybeSingle: async () => { if (db.offline) throw new Error('Failed to fetch'); return ({ data: db.payload ? { payload: JSON.parse(JSON.stringify(db.payload)) } : null, error: null }); } }) }),
+        upsert: async (row) => { if (db.offline) throw new Error('Failed to fetch'); db.payload = JSON.parse(JSON.stringify(row.payload)); db.writes = (db.writes || 0) + 1; return { error: null }; },
       },
     };
     w.supabase = { createClient: () => client };
