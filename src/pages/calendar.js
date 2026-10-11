@@ -13,6 +13,7 @@ function calendar() {
     `<button class="btn" ${on('click', 'openSuggestWeek')}>✨ Sugerir semana</button><button class="btn" ${on('click', 'copyWeek')}>📋 Copiar a la siguiente</button><button class="btn primary" ${on('click', 'navigate', 'Compra', {keepWeek:true})}>🛒 Lista de la compra</button>`) +
   weekNav(`<span class="week-stat">⚡ Media prevista: <b>${fmtMg(avg)}</b> / ${goalDay()} mg al día · ${planned} ${planned === 1 ? 'comida planificada' : 'comidas planificadas'}</span>`) +
   rakBanner(start) +
+  (state.recipes.length ? '' : `<div class="notice">📖 Aún no tienes recetas para planificar. <button class="link" ${on('click', 'openForm')}>Añade la primera</button> o <button class="link" ${on('click', 'openImport')}>pega una de internet</button>. Mientras tanto, el menú del RAK ya cuenta en tu hierro.</div>`) +
   dayStrip(dates, days) +
   `<div class="calendar">${dates.map((d, i) => dayCard(d, days[i])).join('')}</div>
    <div class="notice">«Sugerir semana» solo rellena huecos vacíos y te enseña la propuesta antes de aplicarla. En el ordenador puedes arrastrar una receta a otro hueco. Las barras suman lo ya comido (color fuerte) y lo previsto (claro): recetas planificadas y mejor opción del RAK. No sustituye una evaluación nutricional.</div>`;
