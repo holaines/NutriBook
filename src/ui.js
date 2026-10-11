@@ -11,7 +11,7 @@ function pageHeader(title, desc, actions = '') {
 }
 function weekNav(extra = '') {
   const s = weekStart(), e = datePlus(s, 6);
-  return `<div class="week-head"><div class="buttons"><button class="btn" onclick="shiftWeek(-1)" aria-label="Semana anterior">←</button><button class="btn" onclick="shiftWeek(0)">Hoy</button><button class="btn" onclick="shiftWeek(1)" aria-label="Semana siguiente">→</button></div>
+  return `<div class="week-head"><div class="buttons"><button class="btn" ${on('click', 'shiftWeek', -1)} aria-label="Semana anterior">←</button><button class="btn" ${on('click', 'shiftWeek', 0)}>Hoy</button><button class="btn" ${on('click', 'shiftWeek', 1)} aria-label="Semana siguiente">→</button></div>
     <strong class="week-label">${fmtDay(s, { day: 'numeric', month: 'long' })} – ${fmtDay(e, { day: 'numeric', month: 'long', year: 'numeric' })}${weekOffset === 0 ? ' <span class="pill">Esta semana</span>' : ''}</strong>${extra}</div>`;
 }
 function shiftWeek(n) { weekOffset = n === 0 ? 0 : weekOffset + n; render(); }
@@ -41,7 +41,7 @@ function ironChart(dates) {
   const goal = goalDay(), max = Math.max(goal * 1.3, ...days.map((x) => x.total));
   const pct = (v) => (v / max * 100).toFixed(1);
   return `<div class="chart"><div class="chart-area"><div class="goal-line" style="bottom:${pct(goal)}%"><span>objetivo ${goal} mg</span></div>
-    ${days.map((x) => `<button class="bar-col ${x.d === today() ? 'is-today' : ''} ${x.level}" onclick="openDay(${q(x.d)})" aria-label="${fmtDay(x.d)}: ${fmtMg(x.total)} mg de hierro">
+    ${days.map((x) => `<button class="bar-col ${x.d === today() ? 'is-today' : ''} ${x.level}" ${on('click', 'openDay', x.d)} aria-label="${fmtDay(x.d)}: ${fmtMg(x.total)} mg de hierro">
       <span class="bar-val" style="bottom:calc(${pct(x.total)}% + 3px)">${x.total > 0 ? fmtMg(x.total) : ''}</span>
       <span class="bar-plan" style="height:${pct(x.total)}%"></span><span class="bar-eaten" style="height:${pct(x.eaten)}%"></span></button>`).join('')}
     </div><div class="chart-labels">${days.map((x) => `<span class="${x.d === today() ? 'is-today' : ''}">${fmtDay(x.d, { weekday: 'short' })}</span>`).join('')}</div>
@@ -50,9 +50,9 @@ function ironChart(dates) {
 
 function recipeCard(r) {
   const fe = ironVal(r.iron);
-  return `<article class="card recipe" tabindex="0" role="button" aria-label="Ver ${h(r.name)}" onclick="viewRecipe(${q(r.id)})" onkeydown="if(event.target===this&&event.key==='Enter')viewRecipe(${q(r.id)})">
+  return `<article class="card recipe" tabindex="0" role="button" aria-label="Ver ${h(r.name)}" ${on('click', 'viewRecipe', r.id)} ${on('keydown', 'viewRecipe', r.id)}>
     <div class="recipe-cover">${h(r.emoji || '🥗')}${fe !== null ? `<span class="fe-badge ${ironLevel(fe, goalMeal())}">${fmtMg(fe)} mg Fe</span>` : ''}
-      <button class="fav ${r.favorite ? 'on' : ''}" aria-label="${r.favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}" onclick="event.stopPropagation();toggleFav(${q(r.id)})">${r.favorite ? '★' : '☆'}</button></div>
+      <button class="fav ${r.favorite ? 'on' : ''}" aria-label="${r.favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}" ${on('click', 'toggleFav', r.id)}>${r.favorite ? '★' : '☆'}</button></div>
     <div class="recipe-body"><h3>${h(r.name)}</h3>
       <div class="tags">${(r.categories || []).slice(0, 2).map((c) => `<span class="tag">${h(c)}</span>`).join('')}</div>
       <div class="recipe-meta"><span>◷ ${Number(r.time || 0)} min</span><span>🍽 ${Number(r.servings || 1)} raciones</span></div></div></article>`;
@@ -78,13 +78,13 @@ function openDay(d) {
 }
 
 function nav() {
-  const btn = (p) => `<button class="${p.id === page ? 'active' : ''} ${p.main ? 'is-main' : ''}" onclick="navigate('${p.id}')" ${p.id === page ? 'aria-current="page"' : ''}><span class="ico">${p.icon}</span><span class="lbl">${p.label}</span></button>`;
+  const btn = (p) => `<button class="${p.id === page ? 'active' : ''} ${p.main ? 'is-main' : ''}" ${on('click', 'navigate', p.id)} ${p.id === page ? 'aria-current="page"' : ''}><span class="ico">${p.icon}</span><span class="lbl">${p.label}</span></button>`;
   const moreActive = PAGES.some((p) => !p.main && p.id === page);
-  return PAGES.map(btn).join('') + `<button class="more-btn ${moreActive ? 'active' : ''}" onclick="openMore()"><span class="ico">⋯</span><span class="lbl">Más</span></button>`;
+  return PAGES.map(btn).join('') + `<button class="more-btn ${moreActive ? 'active' : ''}" ${on('click', 'openMore')}><span class="ico">⋯</span><span class="lbl">Más</span></button>`;
 }
 function openMore() {
-  showModal(`<div class="top"><h2>Más secciones</h2><button class="close" onclick="closeModal()" aria-label="Cerrar">×</button></div>
-    <div class="more-grid">${PAGES.filter((p) => !p.main).map((p) => `<button class="more-item" onclick="navigate('${p.id}')"><span>${p.icon}</span>${p.label}</button>`).join('')}</div>`);
+  showModal(`<div class="top"><h2>Más secciones</h2><button class="close" ${on('click', 'closeModal')} aria-label="Cerrar">×</button></div>
+    <div class="more-grid">${PAGES.filter((p) => !p.main).map((p) => `<button class="more-item" ${on('click', 'navigate', p.id)}><span>${p.icon}</span>${p.label}</button>`).join('')}</div>`);
 }
 
 function renderMain() {
@@ -124,7 +124,7 @@ function showModal(markup) {
   modal = markup;
   const root = $('#modal-root');
   if (!root) return;
-  root.innerHTML = `<div class="modal-bg" onclick="closeModal(event)"><div class="modal" role="dialog" aria-modal="true">${markup}</div></div>`;
+  root.innerHTML = `<div class="modal-bg" ${on('click', 'closeModal', '@event')}><div class="modal" role="dialog" aria-modal="true">${markup}</div></div>`;
   document.body.classList.add('modal-open');
   root.querySelector('input:not([type=hidden]):not([type=file]),select,textarea')?.focus({ preventScroll: true });
 }
@@ -135,4 +135,4 @@ function closeModal(ev) {
   if (root) root.innerHTML = '';
   document.body.classList.remove('modal-open');
 }
-const modalTop = (title, sub = '') => `<div class="top"><div>${sub}<h2>${title}</h2></div><button class="close" onclick="closeModal()" aria-label="Cerrar">×</button></div>`;
+const modalTop = (title, sub = '') => `<div class="top"><div>${sub}<h2>${title}</h2></div><button class="close" ${on('click', 'closeModal')} aria-label="Cerrar">×</button></div>`;

@@ -62,7 +62,7 @@ function rakBanner(start) {
     error: 'No se pudo cargar el menú del RAK: ' + h(st.message || 'error desconocido'),
   }[st.state];
   return `<div class="rak-banner ${st.state}">${busy ? '<span class="spinner"></span>' : '🍽'} <span>${msg}</span>
-    <button class="btn mini" ${busy ? 'disabled' : ''} onclick="refreshRAK()">${busy ? 'Un momento…' : st.state === 'empty' || st.state === 'error' ? 'Buscar en el RAK' : 'Actualizar'}</button></div>`;
+    <button class="btn mini" ${busy ? 'disabled' : ''} ${on('click', 'refreshRAK')}>${busy ? 'Un momento…' : st.state === 'empty' || st.state === 'error' ? 'Buscar en el RAK' : 'Actualizar'}</button></div>`;
 }
 
 const GLUTEN_LABEL = { confirmed_gf: ['Sin gluten', 'good'], contains_gluten: ['Contiene gluten', 'low'], unknown: ['Gluten por confirmar', ''] };
@@ -74,7 +74,7 @@ function rakSlot(date, svc) {
   const eaten = rakOf(date).find((e) => e.service === svc);
   if (eaten) {
     return `<div class="rak-slot-inner rak-status-good-iron"><div class="rak-label">RAK · comido</div><div class="rak-indicator">✓ ${fmtMg(eaten.iron_total_mg)} mg Fe</div>
-      <div class="buttons"><button class="btn mini" onclick="showRAKModal(${q(date)},${q(svc)})">Ver</button><button class="btn mini" onclick="undoRAK(${q(date)},${q(svc)})">Deshacer</button></div></div>`;
+      <div class="buttons"><button class="btn mini" ${on('click', 'showRAKModal', date, svc)}>Ver</button><button class="btn mini" ${on('click', 'undoRAK', date, svc)}>Deshacer</button></div></div>`;
   }
   const dishes = RAK.getDay(date, svc);
   if (dishes === null) {
@@ -85,7 +85,7 @@ function rakSlot(date, svc) {
   const best = RAK.getBestGlutenFreeCombo(date, svc);
   if (!best) {
     return `<div class="rak-slot-inner rak-status-no-gf"><div class="rak-label">RAK</div><div class="rak-indicator">⛔ Sin opción sin gluten</div>
-      <div class="buttons"><button class="btn mini" onclick="showRAKModal(${q(date)},${q(svc)})">Detalles</button></div></div>`;
+      <div class="buttons"><button class="btn mini" ${on('click', 'showRAKModal', date, svc)}>Detalles</button></div></div>`;
   }
   const ironOk = best.iron_known && best.iron_total >= goalMeal(), full = best.effective_status === 'confirmed_gf';
   const cls = !full ? 'rak-status-acceptable' : !best.iron_known || ironOk ? 'rak-status-good-iron' : 'rak-status-low-iron';
@@ -94,8 +94,8 @@ function rakSlot(date, svc) {
     <div class="rak-indicator">${h(best.plat?.dish_name || '')}${best.accompagnement ? ' + ' + h(best.accompagnement.dish_name) : ''}</div>
     ${best.suggestions.length ? `<div class="rak-suggestion">${h(best.suggestions[0])}</div>` : ''}
     <div class="rak-iron-note">${ironText}</div>
-    <div class="buttons"><button class="btn mini" onclick="showRAKModal(${q(date)},${q(svc)})">Detalles</button><button class="btn mini primary" onclick="eatRAK(${q(date)},${q(svc)},${q(best.number)})">Lo he comido</button>
-    ${best.iron_known && !ironOk ? `<button class="btn mini" onclick="showRAKRecipes(${q(date)},${q(svc)})">Alternativas</button>` : ''}</div></div>`;
+    <div class="buttons"><button class="btn mini" ${on('click', 'showRAKModal', date, svc)}>Detalles</button><button class="btn mini primary" ${on('click', 'eatRAK', date, svc, best.number)}>Lo he comido</button>
+    ${best.iron_known && !ironOk ? `<button class="btn mini" ${on('click', 'showRAKRecipes', date, svc)}>Alternativas</button>` : ''}</div></div>`;
 }
 
 function showRAKModal(date, svc) {
@@ -113,28 +113,29 @@ function showRAKModal(date, svc) {
   const body = combos ? combos.map((c) => `<div class="combo ${c.effective_status}"><div class="combo-head"><b>Opción ${c.number}</b><span>${EFFECTIVE_LABEL[c.effective_status]}${c.uncertain ? ' · provisional' : ''}</span>
       <b class="fe ${c.iron_known ? ironLevel(c.iron_total, goalMeal()) : ''}">${c.iron_known ? fmtMg(c.iron_total) + ' mg Fe' : 'Fe ?'}</b></div>
       ${dishLine(c.plat)}${dishLine(c.accompagnement)}
-      ${!eaten && c.effective_status !== 'no_option' ? `<div class="buttons" style="margin-top:8px"><button class="btn primary mini" onclick="eatRAK(${q(date)},${q(svc)},${q(c.number)});closeModal()">Lo he comido</button></div>` : ''}</div>`).join('')
+      ${!eaten && c.effective_status !== 'no_option' ? `<div class="buttons" style="margin-top:8px"><button class="btn primary mini" ${on('click', 'eatRAK', date, svc, c.number, true)}>Lo he comido</button></div>` : ''}</div>`).join('')
     : dishes.length ? dishes.map((d) => `<div class="combo">${dishLine(d)}</div>`).join('') : '<p class="muted">No hay platos disponibles.</p>';
   showModal(`${modalTop(`RAK · ${RAK_MEAL[svc]}`, `<div class="eyebrow">${fmtDay(date)}</div>`)}
-    ${eaten ? `<div class="notice">✓ Comida confirmada · ${fmtMg(eaten.iron_total_mg)} mg Fe <button class="link" onclick="undoRAK(${q(date)},${q(svc)});closeModal()">Deshacer</button></div>` : ''}
+    ${eaten ? `<div class="notice">✓ Comida confirmada · ${fmtMg(eaten.iron_total_mg)} mg Fe <button class="link" ${on('click', 'undoRAK', date, svc, true)}>Deshacer</button></div>` : ''}
     <div class="combos">${body}</div>
     <p class="small muted">El análisis de gluten y hierro lo estima una IA a partir del nombre del plato: confírmalo con el personal del RAK si tienes dudas.</p>
-    <div class="buttons"><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+    <div class="buttons"><button class="btn" ${on('click', 'closeModal')}>Cerrar</button></div>`);
 }
-function eatRAK(date, svc, number) {
+function eatRAK(date, svc, number, closeAfter = false) {
   const combo = RAK.getCombos(date, svc)?.find((c) => c.number === number);
   if (!combo) return;
   RAK.confirmMeal(date, svc, combo.dishes);
+  if (closeAfter) closeModal();
   renderMain();
   toast(combo.iron_known ? `RAK registrado · +${fmtMg(combo.iron_total)} mg de hierro` : 'RAK registrado (sin dato de hierro)');
 }
-function undoRAK(date, svc) { RAK.unconfirmMeal(date, svc); renderMain(); }
+function undoRAK(date, svc, closeAfter = false) { RAK.unconfirmMeal(date, svc); if (closeAfter) closeModal(); renderMain(); }
 
 function showRAKRecipes(date, svc) {
   const list = RAK.suggestRecipes().slice(0, 6);
   showModal(`${modalTop('Alternativas ricas en hierro')}
     <p class="muted">Recetas de tu biblioteca, de más a menos hierro:</p>
     ${list.length ? list.map((r) => `<div class="item"><div><b>${h(r.emoji || '')} ${h(r.name)}</b><small>${fmtMg(r.iron)} mg Fe por ración</small></div>
-      <div class="buttons"><button class="btn mini" onclick="viewRecipe(${q(r.id)})">Ver</button><button class="btn mini primary" onclick="openPlan(${q(r.id)},${q(date)},${q(RAK_MEAL[svc])})">Planificar</button></div></div>`).join('') : '<p class="muted">Aún no tienes recetas con dato de hierro.</p>'}
-    <div class="buttons" style="margin-top:12px"><button class="btn" onclick="closeModal()">Cerrar</button></div>`);
+      <div class="buttons"><button class="btn mini" ${on('click', 'viewRecipe', r.id)}>Ver</button><button class="btn mini primary" ${on('click', 'openPlan', r.id, date, RAK_MEAL[svc])}>Planificar</button></div></div>`).join('') : '<p class="muted">Aún no tienes recetas con dato de hierro.</p>'}
+    <div class="buttons" style="margin-top:12px"><button class="btn" ${on('click', 'closeModal')}>Cerrar</button></div>`);
 }

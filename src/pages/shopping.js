@@ -30,14 +30,14 @@ function shoppingItems() {
 }
 function shopping() {
   const items = shoppingItems(), pending = items.filter((i) => !state.checked[i.key]), done = items.filter((i) => state.checked[i.key]);
-  const row = (i) => `<div class="item"><label class="check-row"><input class="check" type="checkbox" ${state.checked[i.key] ? 'checked' : ''} onchange="toggleCheck(${items.indexOf(i)},this.checked)">
+  const row = (i) => `<div class="item"><label class="check-row"><input class="check" type="checkbox" ${state.checked[i.key] ? 'checked' : ''} ${on('change', 'toggleCheck', items.indexOf(i), '@checked')}>
     <span class="${state.checked[i.key] ? 'struck' : ''}"><b>${h(i.name)}</b><small>Necesario: ${fmtQty(i.quantity, i.unit)}${i.have ? ' · En despensa: ' + fmtQty(i.have, i.unit) : ''}${i.unknown ? ` · ${i.unknown} cantidad(es) sin indicar` : ''}</small></span></label>
     <b class="qty ${i.left === 0 && i.quantity > 0 ? 'ok' : ''}">${i.quantity > 0 && i.left === 0 ? '✓ en casa' : fmtQty(i.left, i.unit)}</b></div>`;
   return pageHeader('Mi lista de la compra', 'Ingredientes de las recetas planificadas en la semana seleccionada.',
-    `<button class="btn" onclick="copyShopping()">Copiar lista</button><button class="btn" onclick="navigate('Calendario',{keepWeek:true})">← Calendario</button>`) +
+    `<button class="btn" ${on('click', 'copyShopping')}>Copiar lista</button><button class="btn" ${on('click', 'navigate', 'Calendario', {keepWeek:true})}>← Calendario</button>`) +
   weekNav(`<span class="week-stat">${pending.length} por comprar · ${done.length} listos</span>`) +
   `<div class="card">${items.length ? pending.map(row).join('') + (done.length ? `<div class="item-sep">Ya en el carro</div>` + done.map(row).join('') : '')
-    : empty('No hay nada en la lista', 'Planifica alguna receta en el calendario y aparecerán aquí sus ingredientes.', `<button class="btn primary" onclick="navigate('Calendario',{keepWeek:true})">Ir al calendario</button>`)}</div>
+    : empty('No hay nada en la lista', 'Planifica alguna receta en el calendario y aparecerán aquí sus ingredientes.', `<button class="btn primary" ${on('click', 'navigate', 'Calendario', {keepWeek:true})}>Ir al calendario</button>`)}</div>
   <div class="notice">Se resta lo que ya tienes en la despensa (con el mismo nombre; kg↔g y l↔ml se convierten). Revisa los resultados antes de comprar.</div>`;
 }
 function toggleCheck(idx, checked) {

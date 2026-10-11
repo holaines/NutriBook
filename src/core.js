@@ -25,8 +25,6 @@ const PAGES = [
 const $ = (s) => document.querySelector(s);
 const eid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-/** Argumento seguro para atributos onclick="…": q("a'b") -> &quot;a'b&quot; */
-const q = (v) => h(JSON.stringify(String(v)));
 const iso = (d) => d.toLocaleDateString('en-CA');
 const today = () => iso(new Date());
 const parseDate = (d) => new Date(d + 'T12:00:00');

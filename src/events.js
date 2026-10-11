@@ -1,11 +1,12 @@
 'use strict';
 /* NutriBook — delegación de eventos.
    En vez de onclick="fn('x')" se escribe ${on('click', 'fn', 'x')} -> data-click="fn" data-args='["x"]'.
-   Un único listener por tipo de evento llama a actions[nombre](...args, elemento, evento).
+   Un único listener por tipo de evento llama a actions[nombre](...args), sustituyendo los marcadores
+   '@el' (elemento), '@value', '@checked' y '@event' por su valor en el momento del evento.
    Mientras dure la migración, si el nombre no está registrado se busca en window. */
 (function () {
   const actions = {};
-  const TYPES = ['click', 'change', 'input', 'submit'];
+  const TYPES = ['click', 'change', 'input', 'submit', 'keydown'];   // keydown: solo Enter pulsado sobre el propio elemento
   const attr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
   /** Atributos data-* para un evento; devuelve html seguro para insertar dentro de una etiqueta. */
@@ -23,8 +24,10 @@
     if (!fn) { console.error('Acción desconocida:', el.getAttribute('data-' + type)); return; }
     let args = [];
     try { args = JSON.parse(el.getAttribute('data-args') || '[]'); } catch { /* sin argumentos */ }
+    if (type === 'keydown' && (ev.key !== 'Enter' || ev.target !== el)) return;
     if (type === 'submit') ev.preventDefault();
-    fn(...args, el, ev);
+    const subst = { '@el': el, '@value': el.value, '@checked': el.checked, '@event': ev };
+    fn(...args.map((a) => (typeof a === 'string' && a in subst ? subst[a] : a)));
   }
   TYPES.forEach((t) => document.addEventListener(t, handle));
   window.NBEvents = { on, register, actions };

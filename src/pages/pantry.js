@@ -11,20 +11,20 @@ function pantry() {
   const ideas = state.recipes.map((r) => ({
     r, n: (r.ingredients || []).filter((i) => state.pantry.some((p) => p.name.toLowerCase().includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(p.name.toLowerCase()))).length,
   })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 6);
-  return pageHeader('Mi despensa', 'Los ingredientes que ya tienes en casa.', `<button class="btn primary" onclick="openPantry()">+ Añadir ingrediente</button>`) +
+  return pageHeader('Mi despensa', 'Los ingredientes que ya tienes en casa.', `<button class="btn primary" ${on('click', 'openPantry')}>+ Añadir ingrediente</button>`) +
   `<div class="card">${items.length ? items.map((p) => {
     const dt = p.expiry ? daysTo(p.expiry) : null;
     const exp = dt === null ? '' : dt < 0 ? `<span class="tag bad">Caducado</span>` : dt <= 3 ? `<span class="tag warn">Caduca en ${dt} d</span>` : '';
     return `<div class="item"><span><b>${h(p.name)}</b> ${exp}<small>${h(p.quantity)} ${h(p.unit)}${p.expiry ? ' · Fecha límite: ' + h(p.expiry) : ''}</small></span>
-      <div class="buttons"><button class="btn" onclick="openPantry(${q(p.id)})">Editar</button><button class="btn danger" onclick="removePantry(${q(p.id)})">Quitar</button></div></div>`;
-  }).join('') : empty('Tu despensa está vacía', 'Añade avena, garbanzos, lentejas o lo que tengas en casa.', '<button class="btn primary" onclick="openPantry()">Añadir ingrediente</button>')}</div>
+      <div class="buttons"><button class="btn" ${on('click', 'openPantry', p.id)}>Editar</button><button class="btn danger" ${on('click', 'removePantry', p.id)}>Quitar</button></div></div>`;
+  }).join('') : empty('Tu despensa está vacía', 'Añade avena, garbanzos, lentejas o lo que tengas en casa.', `<button class="btn primary"${on('click', 'openPantry')}>Añadir ingrediente</button>`)}</div>
   <div class="section-head"><h2>Ideas con lo que tienes</h2></div>
   ${ideas.length ? `<div class="grid">${ideas.map((x) => recipeCard(x.r)).join('')}</div>` : '<div class="muted">Añade recetas e ingredientes para ver coincidencias.</div>'}`;
 }
 function openPantry(id) {
   const p = state.pantry.find((x) => x.id === id) || { name: '', quantity: '', unit: 'g', expiry: '' };
   showModal(`${modalTop(id ? 'Editar ingrediente' : 'Añadir ingrediente')}
-    <form onsubmit="event.preventDefault();savePantry(this,${q(id || '')})"><div class="form-grid">
+    <form ${on('submit', 'savePantry', '@el', id || '')}><div class="form-grid">
       ${field('Ingrediente', `<input name="name" required value="${h(p.name)}">`, 'wide')}
       ${field('Cantidad', `<input name="quantity" type="number" min="0" step="any" required value="${h(p.quantity)}">`)}
       ${field('Unidad', `<select name="unit">${['g', 'kg', 'ml', 'l', 'ud'].map((u) => `<option ${p.unit === u ? 'selected' : ''}>${u}</option>`).join('')}</select>`)}

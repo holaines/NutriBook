@@ -35,6 +35,6 @@ test('compra: un ingrediente con apóstrofo no rompe la casilla', async () => {
   const app = await loadApp({ data });
   await app.go('Compra');
   assert.match(app.text(), /l'ail/);
-  assert.match(app.html(), /onchange="toggleCheck\(0,this\.checked\)"/);
+  assert.match(app.html(), /data-change="toggleCheck" data-args="\[0,&quot;@checked&quot;\]"/);
   assert.deepEqual(app.errors, []);
 });

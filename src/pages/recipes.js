@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Recetas
 // ═══════════════════════════════════════════════════════════════════════════
+function toggleFilter(k) { setFilter(k, !filters[k]); }
 function setFilter(k, v) { filters[k] = v; renderMain(); }
 function resetFilters() { filters = { search: '', cat: '', maxTime: '', ingredient: '', sort: filters.sort, fav: false, iron: false }; renderMain(); }
 
@@ -24,18 +25,18 @@ function recipes() {
   list = sorters[f.sort]();
   const filtered = f.search || f.cat || f.maxTime || f.ingredient || f.fav || f.iron;
   return pageHeader('Mi banco de recetas', `${state.recipes.length} recetas guardadas.`,
-    `<button class="btn primary" onclick="openForm()">+ Nueva receta</button><button class="btn" onclick="openImport()">Pegar receta</button>`) +
-  `<div class="toolbar"><input aria-label="Buscar recetas" placeholder="Buscar por nombre o ingrediente…" value="${h(f.search)}" oninput="setFilter('search',this.value)">
-    <select aria-label="Categoría" onchange="setFilter('cat',this.value)"><option value="">Todas las categorías</option>${CATS.map((c) => `<option ${f.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
-    <select aria-label="Tiempo máximo" onchange="setFilter('maxTime',this.value)"><option value="">Cualquier duración</option>${[10, 15, 20, 30, 45, 60].map((v) => `<option value="${v}" ${f.maxTime == v ? 'selected' : ''}>Hasta ${v} min</option>`).join('')}</select>
-    <select aria-label="Ordenar" onchange="setFilter('sort',this.value)">${[['recent', 'Más recientes'], ['name', 'Nombre A-Z'], ['iron', 'Más hierro'], ['time', 'Más rápidas']].map(([v, l]) => `<option value="${v}" ${f.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-  <div class="chips"><button class="chip-btn ${f.iron ? 'on' : ''}" onclick="setFilter('iron',!filters.iron)">⚡ Ricas en hierro (≥ ${goalMeal()} mg)</button>
-    <button class="chip-btn ${f.fav ? 'on' : ''}" onclick="setFilter('fav',!filters.fav)">★ Favoritas</button>
-    <input class="chip-input" aria-label="Filtrar ingrediente" placeholder="Con ingrediente…" value="${h(f.ingredient)}" oninput="setFilter('ingredient',this.value)">
-    ${filtered ? '<button class="link" onclick="resetFilters()">Quitar filtros</button>' : ''}</div>` +
+    `<button class="btn primary" ${on('click', 'openForm')}>+ Nueva receta</button><button class="btn" ${on('click', 'openImport')}>Pegar receta</button>`) +
+  `<div class="toolbar"><input aria-label="Buscar recetas" placeholder="Buscar por nombre o ingrediente…" value="${h(f.search)}" ${on('input', 'setFilter', 'search', '@value')}>
+    <select aria-label="Categoría" ${on('change', 'setFilter', 'cat', '@value')}><option value="">Todas las categorías</option>${CATS.map((c) => `<option ${f.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+    <select aria-label="Tiempo máximo" ${on('change', 'setFilter', 'maxTime', '@value')}><option value="">Cualquier duración</option>${[10, 15, 20, 30, 45, 60].map((v) => `<option value="${v}" ${f.maxTime == v ? 'selected' : ''}>Hasta ${v} min</option>`).join('')}</select>
+    <select aria-label="Ordenar" ${on('change', 'setFilter', 'sort', '@value')}>${[['recent', 'Más recientes'], ['name', 'Nombre A-Z'], ['iron', 'Más hierro'], ['time', 'Más rápidas']].map(([v, l]) => `<option value="${v}" ${f.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+  <div class="chips"><button class="chip-btn ${f.iron ? 'on' : ''}" ${on('click', 'toggleFilter', 'iron')}>⚡ Ricas en hierro (≥ ${goalMeal()} mg)</button>
+    <button class="chip-btn ${f.fav ? 'on' : ''}" ${on('click', 'toggleFilter', 'fav')}>★ Favoritas</button>
+    <input class="chip-input" aria-label="Filtrar ingrediente" placeholder="Con ingrediente…" value="${h(f.ingredient)}" ${on('input', 'setFilter', 'ingredient', '@value')}>
+    ${filtered ? `<button class="link"${on('click', 'resetFilters')}>Quitar filtros</button>` : ''}</div>` +
   (list.length ? `<div class="grid">${list.map(recipeCard).join('')}</div>`
     : empty('No hay recetas que mostrar', state.recipes.length ? 'Prueba con otros filtros.' : 'Empieza añadiendo la primera receta.',
-      filtered ? '<button class="btn" onclick="resetFilters()">Quitar filtros</button>' : '<button class="btn primary" onclick="openForm()">Añadir receta</button>'));
+      filtered ? `<button class="btn"${on('click', 'resetFilters')}>Quitar filtros</button>` : `<button class="btn primary"${on('click', 'openForm')}>Añadir receta</button>`));
 }
 
 function parseIngredients(t) {
@@ -61,15 +62,16 @@ function viewRecipe(id) {
     <div class="buttons"><span class="pill">◷ ${r.time} min</span><span class="pill">🍽 ${r.servings} raciones</span>
       ${fe !== null ? `<span class="pill fe ${ironLevel(fe, goalMeal())}">⚡ ${fmtMg(fe)} mg Fe/ración · ${src}</span>` : '<span class="pill">⚡ Hierro sin calcular</span>'}</div>
     ${r.nutrition ? `<p class="notice">✨ ${h(r.nutrition.provider || 'IA')} · ${conf[r.nutrition.confidence] || ''} · ${fmtMg(r.nutrition.estimatedRecipeIronMg)} mg en total · ${h(r.nutrition.notes)}</p>` : ''}
-    <div class="buttons" style="margin-top:14px"><button class="btn primary" onclick="openPlan(${q(id)})">📅 Añadir al calendario</button><button class="btn" onclick="openEatRecipe(today(),${q(id)})">✓ Lo he comido</button></div>
+    <div class="buttons" style="margin-top:14px"><button class="btn primary" ${on('click', 'openPlan', id)}>📅 Añadir al calendario</button><button class="btn" ${on('click', 'openEatRecipe', today(), id)}>✓ Lo he comido</button></div>
     <hr class="line">
-    ${field('Escalar raciones', `<input type="number" min="1" value="${r.servings}" oninput="document.getElementById('ingredients-detail').innerText=scaledIngredients(${q(id)},Number(this.value))">`)}
+    ${field('Escalar raciones', `<input type="number" min="1" value="${r.servings}" ${on('input', 'rescaleIngredients', id, '@value')}>`)}
     <div class="split recipe-detail"><div><h3>Ingredientes</h3><div id="ingredients-detail" style="white-space:pre-line;line-height:1.9">${h(ingredientText(r))}</div></div>
       <div><h3>Preparación</h3><ol>${(r.instructions || []).map((x) => `<li>${h(x)}</li>`).join('')}</ol></div></div>
     ${r.source ? `<p class="small muted">Fuente: ${/^https?:\/\//.test(r.source) ? `<a href="${h(r.source)}" target="_blank" rel="noopener">${h(r.source)}</a>` : h(r.source)}</p>` : ''}
-    <hr class="line"><div class="buttons"><button class="btn" onclick="openForm(${q(id)})">Editar</button><button id="iron-llm-btn" class="btn" onclick="estimateIron(${q(id)})">⚡ ${fe === null ? 'Calcular' : 'Recalcular'} hierro con IA</button>
-      <button class="btn" onclick="duplicateRecipe(${q(id)})">Duplicar</button><button class="btn danger" onclick="deleteRecipe(${q(id)})">Eliminar</button></div>`);
+    <hr class="line"><div class="buttons"><button class="btn" ${on('click', 'openForm', id)}>Editar</button><button id="iron-llm-btn" class="btn" ${on('click', 'estimateIron', id)}>⚡ ${fe === null ? 'Calcular' : 'Recalcular'} hierro con IA</button>
+      <button class="btn" ${on('click', 'duplicateRecipe', id)}>Duplicar</button><button class="btn danger" ${on('click', 'deleteRecipe', id)}>Eliminar</button></div>`);
 }
+function rescaleIngredients(id, n) { document.getElementById('ingredients-detail').innerText = scaledIngredients(id, Number(n)); }
 function scaledIngredients(id, servings) {
   const r = recipe(id);
   return r ? ingredientText(r, Math.max(1, servings) / (r.servings || 1)) : '';
@@ -92,7 +94,7 @@ function openForm(id, draft) {
   const r = recipe(id) || draft || { name: '', description: '', emoji: '🥗', categories: [], ingredients: [], instructions: [], servings: 4, time: 30, iron: '', favorite: false };
   const cat = (r.categories || [])[0];
   showModal(`${modalTop(id ? 'Editar receta' : 'Añadir receta')}
-    <form onsubmit="event.preventDefault();saveRecipe(this,${q(id || '')})"><div class="form-grid">
+    <form ${on('submit', 'saveRecipe', '@el', id || '')}><div class="form-grid">
       ${field('Nombre *', `<input name="name" required value="${h(r.name)}">`, 'wide')}
       ${field('Categoría', `<select name="category">${CATS.map((c) => `<option ${c === cat ? 'selected' : ''}>${c}</option>`).join('')}</select>`)}
       ${field('Emoji de portada', `<input name="emoji" value="${h(r.emoji)}">`)}
@@ -104,7 +106,7 @@ function openForm(id, draft) {
       ${field('Hierro por ración (mg, opcional)', `<input name="iron" type="number" min="0" step="0.1" value="${h(r.iron ?? '')}">`)}
       ${field('Fuente / URL (opcional)', `<input name="source" value="${h(r.source || '')}">`)}</div>
       <p class="info muted">Si dejas el hierro en blanco, la IA lo estimará al guardar (necesitas haber iniciado sesión). Tus valores manuales nunca se sobrescriben.</p>
-      <div class="buttons"><button class="btn primary" type="submit">Guardar receta</button><button class="btn" type="button" onclick="closeModal()">Cancelar</button></div></form>`);
+      <div class="buttons"><button class="btn primary" type="submit">Guardar receta</button><button class="btn" type="button" ${on('click', 'closeModal')}>Cancelar</button></div></form>`);
 }
 function saveRecipe(form, id) {
   const f = Object.fromEntries(new FormData(form)), old = recipe(id);
@@ -158,7 +160,7 @@ function openImport() {
   showModal(`${modalTop('Pegar una receta')}
     <p class="muted">Pega una receta con nombre, «Ingredientes» y «Preparación». Podrás revisar los campos antes de guardar.</p>
     <textarea id="raw-recipe" style="width:100%;min-height:250px" placeholder="Galletas de avena&#10;Ingredientes&#10;120 g de avena&#10;1 plátano&#10;Preparación&#10;Mezclar todo.&#10;Hornear 20 minutos."></textarea>
-    <div class="buttons" style="margin-top:15px"><button class="btn primary" onclick="parseImport()">Extraer receta</button></div>`);
+    <div class="buttons" style="margin-top:15px"><button class="btn primary" ${on('click', 'parseImport')}>Extraer receta</button></div>`);
 }
 function parseImport() {
   const rows = sub(document.getElementById('raw-recipe').value);

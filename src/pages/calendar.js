@@ -10,7 +10,7 @@ function calendar() {
   const avg = counted.length ? counted.reduce((n, x) => n + x.di.total, 0) / counted.length : 0;
   const planned = dates.reduce((n, d) => n + MEALS.filter((m) => state.plan[d + '|' + m]).length, 0);
   return pageHeader('Mi planificación', 'Planifica tus comidas y mira el hierro de cada día de un vistazo.',
-    `<button class="btn" onclick="generateWeek()">✨ Sugerir semana</button><button class="btn primary" onclick="navigate('Compra',{keepWeek:true})">🛒 Lista de la compra</button>`) +
+    `<button class="btn" ${on('click', 'generateWeek')}>✨ Sugerir semana</button><button class="btn primary" ${on('click', 'navigate', 'Compra', {keepWeek:true})}>🛒 Lista de la compra</button>`) +
   weekNav(`<span class="week-stat">⚡ Media prevista: <b>${fmtMg(avg)}</b> / ${goalDay()} mg al día · ${planned} comidas planificadas</span>`) +
   rakBanner(start) +
   `<div class="calendar">${dates.map((d, i) => dayCard(d, days[i])).join('')}</div>
@@ -28,10 +28,10 @@ function slot(d, m) {
   const k = d + '|' + m, r = recipe(state.plan[k]), done = eatenFor(k), svc = RAK_SERVICE[m];
   const fe = r ? ironVal(r.iron) : null;
   return `<div class="slot ${done ? 'is-eaten' : ''}"><div class="slot-label">${m}</div>
-    <select aria-label="${m} ${d}" onchange="setPlan(${q(k)},this.value)"><option value="">+ Elegir receta</option>${state.recipes.map((x) => `<option value="${h(x.id)}" ${x.id === state.plan[k] ? 'selected' : ''}>${h(x.name)}</option>`).join('')}</select>
-    ${r ? `<div class="slot-recipe"><button class="link" onclick="viewRecipe(${q(r.id)})">Ver receta</button>
+    <select aria-label="${m} ${d}" ${on('change', 'setPlan', k, '@value')}><option value="">+ Elegir receta</option>${state.recipes.map((x) => `<option value="${h(x.id)}" ${x.id === state.plan[k] ? 'selected' : ''}>${h(x.name)}</option>`).join('')}</select>
+    ${r ? `<div class="slot-recipe"><button class="link" ${on('click', 'viewRecipe', r.id)}>Ver receta</button>
       <span class="fe ${fe === null ? '' : ironLevel(fe, goalMeal())}">${fe === null ? 'Fe ?' : fmtMg(fe) + ' mg'}</span>
-      <button class="btn mini ${done ? 'done' : ''}" onclick="toggleEaten(${q(k)})" title="${done ? 'Quitar de lo comido' : 'Cuenta este plato en tu hierro del día'}">${done ? '✓ Comido' : 'Comido'}</button></div>` : ''}
+      <button class="btn mini ${done ? 'done' : ''}" ${on('click', 'toggleEaten', k)} title="${done ? 'Quitar de lo comido' : 'Cuenta este plato en tu hierro del día'}">${done ? '✓ Comido' : 'Comido'}</button></div>` : ''}
     ${svc ? `<div class="rak-slot">${rakSlot(d, svc)}</div>` : ''}</div>`;
 }
 
@@ -57,11 +57,11 @@ function openPlan(recipeId, date, meal) {
   if (!state.recipes.length) { toast('Primero añade una receta.', 'warn'); return; }
   const d = date || today();
   showModal(`${modalTop('Añadir al calendario')}
-    <form onsubmit="event.preventDefault();savePlan(this)"><div class="form-grid">
+    <form ${on('submit', 'savePlan', '@el')}><div class="form-grid">
       ${field('Receta', `<select name="recipe">${state.recipes.map((r) => `<option value="${h(r.id)}" ${r.id === recipeId ? 'selected' : ''}>${h(r.name)}</option>`).join('')}</select>`, 'wide')}
       ${field('Día', `<input type="date" name="date" value="${d}" required>`)}
       ${field('Comida', `<select name="meal">${MEALS.map((m) => `<option ${m === (meal || 'Comida') ? 'selected' : ''}>${m}</option>`).join('')}</select>`)}</div>
-      <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Añadir</button><button class="btn" type="button" onclick="closeModal()">Cancelar</button></div></form>`);
+      <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Añadir</button><button class="btn" type="button" ${on('click', 'closeModal')}>Cancelar</button></div></form>`);
 }
 function savePlan(form) {
   const f = Object.fromEntries(new FormData(form));
