@@ -35,15 +35,18 @@ async function ensureRak(start, { force = false } = {}) {
       if (fetchingNext) {
         const ni = await RAK.loadWeek(weekDates(next));
         rakWeeks[next] = { state: ni.count ? 'done' : 'empty', count: ni.count, fetchedAt: ni.fetchedAt };
+        announceRak(next, ni.count);
         fetchingNext = false;
       }
       set(start, { state: info.count ? 'done' : 'empty', count: info.count, fetchedAt: info.fetchedAt, pending: rep.pending || 0 });
+      announceRak(start, info.count);
       if (force && rep.skipped) toast('El menú del RAK ya estaba al día');
       else if (force) {
         toast(rep.pending ? `Menú RAK actualizado. Quedan ${rep.pending} platos por analizar: vuelve a pulsar «Actualizar» en un rato.` : `Menú RAK actualizado · ${rep.menus_fetched} platos`, rep.pending ? 'warn' : '');
       }
     } else {
       set(start, { state: info.count ? 'done' : 'empty', count: info.count, fetchedAt: info.fetchedAt });
+      announceRak(start, info.count);
     }
   } catch (e) {
     const info = RAK.weekInfo(dates);
@@ -103,6 +106,29 @@ function rakSlot(date, svc) {
     ${best.iron_known && !ironOk ? `<button class="btn mini" ${on('click', 'showRAKRecipes', date, svc)}>Alternativas</button>` : ''}</div></div>`;
 }
 
+// ───────── Historial, favoritos y aviso del menú de la semana siguiente ─────────
+const rakTimesEaten = (dishId) => (state.rakConsumed || []).filter((e) => (e.dishes || []).some((d) => d.dish_id === dishId)).length;
+const isRakFav = (dishId) => (state.rakFavs || []).some((f) => f.id === String(dishId));
+function toggleRakFav(dishId, name, date, svc) {
+  const id = String(dishId);
+  state.rakFavs = isRakFav(dishId) ? state.rakFavs.filter((f) => f.id !== id) : [...(state.rakFavs || []), { id, name }];
+  save(); showRAKModal(date, svc);
+}
+/** ¿Hay que avisar de que ya está el menú de una semana futura? Solo una vez por semana y dispositivo; la primera vez solo se anota (seen === null). */
+function shouldAnnounceRak(seen, week, count, thisWeek) {
+  if (!(count > 0) || week <= thisWeek || seen === null) return false;
+  return !seen[week];
+}
+function announceRak(week, count) {
+  if (!(count > 0)) return;
+  let seen = null;
+  try { seen = JSON.parse(localStorage.getItem('nutribook-rak-seen')); } catch { /* sin datos */ }
+  if (seen && seen[week]) return;
+  const announce = shouldAnnounceRak(seen, week, count, weekStart(0));
+  try { localStorage.setItem('nutribook-rak-seen', JSON.stringify({ ...(seen || {}), [week]: true })); } catch { /* sin almacenamiento */ }
+  if (announce) toast('🍽 Ya está el menú del RAK de la semana que viene', '', { label: 'Verlo', run: () => { weekOffset = Math.round((parseDate(week) - parseDate(mondayOf(today()))) / (7 * 864e5)); navigate('Calendario', { keepWeek: true }); } });
+}
+
 function showRAKModal(date, svc) {
   if (!window.RAK) return;
   const combos = RAK.getCombos(date, svc), dishes = RAK.getDay(date, svc) || [];
@@ -111,11 +137,14 @@ function showRAKModal(date, svc) {
     if (!d) return '';
     const [gl, cls] = GLUTEN_LABEL[d.gluten_status] || GLUTEN_LABEL.unknown;
     const fe = d.iron_mg_estimated != null ? `${fmtMg(d.iron_mg_estimated)} mg Fe (${CONF_LABEL[d.iron_confidence] || '?'})` : 'Fe sin estimar';
-    return `<div class="dish"><b>${h(d.dish_name)}</b> <span class="tag ${cls}">${gl}</span> <small>${fe}</small>
+    const n = rakTimesEaten(d.dish_id), fav = isRakFav(d.dish_id);
+    return `<div class="dish"><b>${h(d.dish_name)}</b> <span class="tag ${cls}">${gl}</span> ${d.gluten_source === 'ai_analysis' ? '<span class="tag" title="Estimado por IA a partir del nombre del plato">🤖 IA</span>' : ''} <small>${fe}</small>
+      <button class="icon-btn fav-dish ${fav ? 'on' : ''}" aria-label="${fav ? 'Quitar de favoritos' : 'Marcar como favorito'}: ${h(d.dish_name)}" aria-pressed="${fav}" ${on('click', 'toggleRakFav', d.dish_id, d.dish_name, date, svc)}>${fav ? '★' : '☆'}</button>
+      ${n ? `<small class="muted">🔁 Lo has comido ${n} ${n === 1 ? 'vez' : 'veces'}</small>` : ''}
       ${d.gluten_reasoning ? `<small class="muted">${h(d.gluten_reasoning)}</small>` : ''}
       ${d.partial_gf && d.partial_gf_suggestion ? `<small class="rak-suggestion">→ ${h(d.partial_gf_suggestion)}</small>` : d.gluten_minor ? '<small class="muted">Gluten en muy poca cantidad (ligante)</small>' : ''}</div>`;
   };
-  const body = combos ? combos.map((c) => `<div class="combo ${c.effective_status}"><div class="combo-head"><b>Opción ${c.number}</b><span>${EFFECTIVE_LABEL[c.effective_status]}${c.uncertain ? ' · provisional' : ''}</span>
+  const body = combos ? combos.map((c) => `<div class="combo ${c.effective_status}"><div class="combo-head"><b>Opción ${c.number}${c.dishes.some((d) => isRakFav(d.dish_id)) ? ' ★' : ''}</b><span>${EFFECTIVE_LABEL[c.effective_status]}${c.uncertain ? ' · provisional' : ''}</span>
       <b class="fe ${c.iron_known ? ironLevel(c.iron_total, goalMeal()) : ''}">${c.iron_known ? fmtMg(c.iron_total) + ' mg Fe' : 'Fe ?'}</b></div>
       ${dishLine(c.plat)}${dishLine(c.accompagnement)}
       ${!eaten && c.effective_status !== 'no_option' ? `<div class="buttons" style="margin-top:8px"><button class="btn primary mini" ${on('click', 'eatRAK', date, svc, c.number, true)}>Lo he comido</button></div>` : ''}</div>`).join('')

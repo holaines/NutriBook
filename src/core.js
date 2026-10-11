@@ -75,11 +75,11 @@ function toast(msg, kind = '', action) {
 const DEFAULTS = () => ({
   schemaVersion: SCHEMA_VERSION,
   sync: { deleted: {}, stamps: {} },
-  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [], supplements: [], labs: [], shoppingExtra: [],
+  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [], supplements: [], labs: [], shoppingExtra: [], rakFavs: [],
   profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5, sex: '', age: '', status: 'none', diet: 'omnivore', onboarded: false },
 });
 /** Migraciones del JSON guardado: MIGRATIONS[n] lleva los datos de la versión n-1 a la n. */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 const MIGRATIONS = {
   1: (d) => { delete d.workouts; delete d.stravaCache; return d; },   // sección Deporte retirada
   2: (d) => ({ ...d, sync: { deleted: {}, stamps: {}, ...(d.sync || {}) } }),   // marcas para la sincronización por elemento
@@ -88,6 +88,7 @@ const MIGRATIONS = {
   4: (d) => ({ ...d, supplements: d.supplements || [] }),   // complementos de hierro
   5: (d) => ({ ...d, labs: d.labs || [] }),   // análisis de sangre
   6: (d) => ({ ...d, shoppingExtra: d.shoppingExtra || [] }),   // extras de la lista de la compra
+  7: (d) => ({ ...d, rakFavs: d.rakFavs || [] }),   // platos favoritos del RAK
 };
 function migrate(d) {
   d = { ...d };
