@@ -21,6 +21,7 @@ function equilibrium() {
     <div class="card"><div class="muted small">COMIDAS SIN DATO</div><div class="metric">${unknown}</div></div></div>
   ${weekAbsorbedNotice(dates, total)}
   <div class="section-head"><h2>Hierro por día</h2></div><div class="card">${ironChart(dates)}</div>
+  <div class="section-head"><h2>Complementos</h2></div>${supplementsCard()}
   <div class="section-head"><h2>Detalle</h2></div>
   <div class="day-list">${days.map((x) => dayDetail(x)).join('')}</div>
   ${todayTipsIn(dates)}<div class="notice">💡 La vitamina C (cítricos, pimiento, kiwi) ayuda a absorber el hierro vegetal; el té y el café junto a las comidas lo dificultan. El hierro ingerido no equivale al absorbido: esto no sustituye el seguimiento médico.</div>`;
@@ -30,7 +31,7 @@ function dayDetail(x) {
   const d = x.d, rows = [];
   for (const f of foodFor(d)) {
     const v = ironVal(f.iron);
-    rows.push(`<div class="entry"><span class="entry-meal">${h(f.meal)}</span><span class="entry-name">${h(f.name)}</span><span class="entry-fe ${v === null ? '' : ironLevel(v, goalMeal())}">${v === null ? 'Fe ?' : fmtMg(v) + ' mg'}</span>
+    rows.push(`<div class="entry"><span class="entry-meal">${f.supplement ? '💊 ' : ''}${h(f.meal)}</span><span class="entry-name">${h(f.name)}</span><span class="entry-fe ${v === null ? '' : ironLevel(v, goalMeal())}">${v === null ? 'Fe ?' : fmtMg(v) + ' mg'}</span>
       <button class="icon-btn" aria-label="Quitar" ${on('click', 'removeFood', f.id)}>×</button></div>`);
   }
   for (const e of rakOf(d)) {

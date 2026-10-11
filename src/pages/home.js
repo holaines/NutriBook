@@ -43,6 +43,7 @@ function home() {
           ${di.unknown ? `<small class="muted">${di.unknown} comida(s) sin dato de hierro</small>` : ''}</div></div>
       ${tipsHtml(d)}
       ${ideas.length ? `<div class="ideas"><small class="muted">Ideas ricas en hierro:</small>${ideas.map((r) => `<button class="chip-btn" ${on('click', 'viewRecipe', r.id)}>${h(r.emoji || '')} ${h(r.name)} · ${fmtMg(r.iron)} mg</button>`).join('')}</div>` : ''}</div>
+    ${(state.supplements || []).length ? supplementsCard() : ''}
     <div class="card"><div class="card-title">Hoy en tu menú <button class="link" ${on('click', 'navigate', 'Calendario')}>Calendario →</button></div>${meals}</div>
   </section>
   <div class="section-head"><h2>Tu semana</h2><button class="btn" ${on('click', 'navigate', 'Equilibrio')}>Ver detalle →</button></div>
