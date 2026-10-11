@@ -346,3 +346,21 @@ body.modal-open .fab { display: none; }
 .hero.ok { border-left-color: var(--good); }
 .hero h2 { margin: 2px 0 6px; font-size: 24px; }
 .hero .buttons { margin-top: 12px; }
+
+/* Calendario: selector de día (móvil), arrastrar y propuesta */
+.day-strip { display: none; }
+.slot[draggable="true"] { cursor: grab; }
+.suggest-list { display: grid; gap: 10px; max-height: 52vh; overflow: auto; margin: 6px 0 10px; }
+.suggest-day { padding-bottom: 6px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
+.suggest-day .entry { text-transform: none; }
+@media (max-width: 750px) {
+  .day-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 12px; }
+  .day-strip button { display: grid; justify-items: center; gap: 1px; padding: 6px 0; border: 1px solid var(--line); border-radius: 12px; background: #fff; min-height: 56px; }
+  .day-strip button small { font-size: 10px; text-transform: uppercase; color: var(--muted); }
+  .day-strip button.on { background: var(--rose); border-color: var(--rose); color: #fff; }
+  .day-strip button.on small { color: #fff; }
+  .day-strip button.is-today:not(.on) { border-color: var(--rose-soft); }
+  .day-strip .dot { width: 7px; height: 7px; border-radius: 50%; background: #d9c3cc; }
+  .day-strip .dot.good { background: var(--good); } .day-strip .dot.mid { background: var(--mid); } .day-strip .dot.low { background: #d9a0a0; }
+  .calendar .day:not(.is-sel) { display: none; }
+}

@@ -6,7 +6,7 @@
    Mientras dure la migración, si el nombre no está registrado se busca en window. */
 (function () {
   const actions = {};
-  const TYPES = ['click', 'change', 'input', 'submit', 'keydown'];   // keydown: solo Enter pulsado sobre el propio elemento
+  const TYPES = ['click', 'change', 'input', 'submit', 'keydown', 'dragstart', 'dragover', 'drop'];   // keydown: solo Enter pulsado sobre el propio elemento
   const attr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
   /** Atributos data-* para un evento; devuelve html seguro para insertar dentro de una etiqueta. */
@@ -25,7 +25,7 @@
     let args = [];
     try { args = JSON.parse(el.getAttribute('data-args') || '[]'); } catch { /* sin argumentos */ }
     if (type === 'keydown' && (ev.key !== 'Enter' || ev.target !== el)) return;
-    if (type === 'submit') ev.preventDefault();
+    if (type === 'submit' || type === 'dragover' || type === 'drop') ev.preventDefault();
     const subst = { '@el': el, '@value': el.value, '@checked': el.checked, '@event': ev };
     fn(...args.map((a) => (typeof a === 'string' && a in subst ? subst[a] : a)));
   }
