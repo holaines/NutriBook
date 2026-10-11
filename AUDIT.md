@@ -17,3 +17,4 @@
 - **Sincronización**: copia JSON completa, gana el último en guardar (dos dispositivos pueden pisarse).
 - El análisis de gluten/hierro del RAK lo estima una IA a partir del *nombre* del plato; no sustituye la ficha oficial de alérgenos.
 - Sin tests automáticos. Sin modo offline (service worker).
+- **Deporte retirado** (12-oct-2026): pestaña, Strava, importación Garmin y funciones `strava-*` eliminados. Las tablas `strava_*` siguen en Supabase; bórralas a mano si quieres.

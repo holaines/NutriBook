@@ -1,6 +1,6 @@
 'use strict';
 /* NutriBook — aplicación principal (SPA sin framework ni build).
-   Secciones: constantes · utilidades · estado · hierro · componentes · páginas · formularios · RAK · Strava · arranque */
+   Secciones: constantes · utilidades · estado · hierro · componentes · páginas · formularios · RAK · arranque */
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constantes
@@ -17,7 +17,6 @@ const PAGES = [
   { id: 'Equilibrio', label: 'Mi hierro', icon: '⚡', main: true },
   { id: 'Compra', label: 'Mi compra', icon: '🛒' },
   { id: 'Despensa', label: 'Despensa', icon: '🥫' },
-  { id: 'Entrenamientos', label: 'Deporte', icon: '🏃' },
   { id: 'Perfil', label: 'Mi perfil', icon: '👤' },
 ];
 
@@ -77,7 +76,7 @@ function toast(msg, kind = '', action) {
 // Estado
 // ═══════════════════════════════════════════════════════════════════════════
 const DEFAULTS = () => ({
-  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], workouts: [], stravaCache: null, rakConsumed: [],
+  recipes: [], pantry: [], plan: {}, checked: {}, consumed: [], rakConsumed: [],
   profile: { name: '', goal: 'Alimentación equilibrada', priorities: 'Hierro, vitamina C, proteínas', budget: '', notes: '', ironDailyGoal: 16, ironMealGoal: 5 },
 });
 function hydrate(d) {
@@ -190,7 +189,7 @@ function recipeCard(r) {
 // ═══════════════════════════════════════════════════════════════════════════
 // Navegación y render
 // ═══════════════════════════════════════════════════════════════════════════
-const VIEWS = { Inicio: home, Recetas: recipes, Calendario: calendar, Entrenamientos: trainingPage, Despensa: pantry, Compra: shopping, Equilibrio: equilibrium, Perfil: profile };
+const VIEWS = { Inicio: home, Recetas: recipes, Calendario: calendar, Despensa: pantry, Compra: shopping, Equilibrio: equilibrium, Perfil: profile };
 
 function navigate(p, opts = {}) {
   if (!PAGES.some((x) => x.id === p)) p = 'Inicio';
@@ -248,7 +247,6 @@ function render() {
 function afterRender() {
   if (page === 'Calendario' || page === 'Equilibrio') ensureRak(weekStart());
   else if (page === 'Inicio') ensureRak(weekStart(0));
-  if (page === 'Entrenamientos') maybeLoadStrava();
 }
 
 function showModal(markup) {
@@ -894,132 +892,6 @@ function showRAKRecipes(date, svc) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Entrenamientos (manual, CSV Garmin y Strava)
-// ═══════════════════════════════════════════════════════════════════════════
-let stravaItems = state.stravaCache?.items || [], stravaStatus = 'Sin consultar', stravaLoading = false, stravaConnecting = false, stravaTried = false;
-const STRAVA_CACHE_TTL = 30 * 60 * 1000;
-
-async function connectStrava() {
-  if (stravaConnecting) return;
-  const client = window.NutriCloud?.getClient?.(), user = window.NutriCloud?.getUser?.(), cfg = window.NUTRIBOOK_SUPABASE;
-  if (!client || !user) { toast('Primero inicia sesión en «Mi perfil».', 'warn'); return; }
-  stravaConnecting = true; renderMain();
-  try {
-    const { data, error } = await client.auth.getSession();
-    if (error || !data?.session) throw Error(error?.message || 'No hay sesión activa');
-    const res = await fetch(cfg.url + '/functions/v1/strava-oauth', {
-      method: 'POST', body: '{}',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token, apikey: cfg.key },
-    });
-    const body = await res.json();
-    if (!res.ok) throw Error(body.error || 'Error de OAuth');
-    window.location.assign(body.url);
-  } catch (e) { toast('Error al conectar Strava: ' + e.message, 'warn'); }
-  finally { stravaConnecting = false; renderMain(); }
-}
-async function fetchStrava(force = false) {
-  const client = window.NutriCloud?.getClient?.(), user = window.NutriCloud?.getUser?.(), cache = state.stravaCache;
-  if (!client || !user) { stravaStatus = 'Inicia sesión en «Mi perfil» para consultar Strava'; renderMain(); return; }
-  if (!force && cache?.items?.length && Date.now() - new Date(cache.fetchedAt).getTime() < STRAVA_CACHE_TTL) {
-    stravaItems = cache.items; stravaStatus = 'Actividades de la caché (' + new Date(cache.fetchedAt).toLocaleTimeString('es-ES') + ')'; renderMain(); return;
-  }
-  stravaLoading = true; stravaStatus = 'Consultando actividades…'; renderMain();
-  try {
-    const { data, error } = await client.from('strava_activities').select('strava_id,name,sport_type,start_date,moving_time,distance_m,calories,average_heartrate').order('start_date', { ascending: false }).limit(150);
-    if (error) throw error;
-    stravaItems = data || [];
-    state.stravaCache = { items: stravaItems, fetchedAt: new Date().toISOString() }; save();
-    stravaStatus = stravaItems.length ? 'Actividades sincronizadas con Supabase' : 'Aún no hay actividades. Conecta Strava o sincroniza tu Garmin.';
-  } catch (e) { stravaStatus = 'No se pudieron leer las actividades: ' + e.message; }
-  finally { stravaLoading = false; renderMain(); }
-}
-function maybeLoadStrava() {
-  if (stravaTried || !window.NutriCloud?.getUser?.()) return;
-  stravaTried = true; fetchStrava(false);
-}
-
-function trainingPage() {
-  const dates = weekDates(), wk = stravaItems.filter((x) => x.start_date && dates.includes(x.start_date.slice(0, 10)));
-  const mins = wk.reduce((n, x) => n + (x.moving_time || 0), 0) / 60 + (state.workouts || []).filter((w) => dates.includes(w.date)).reduce((n, w) => n + (w.minutes || 0), 0);
-  return pageHeader('Deporte', 'Entrenamientos manuales, Garmin (CSV) y Strava en un solo sitio.', `<button class="btn primary" onclick="openWorkoutForm(today())">+ Entrenamiento</button>`) +
-  weekNav(`<span class="week-stat">🏃 <b>${Math.round(mins)}</b> min esta semana</span>`) +
-  `<div class="card"><div class="card-title">Strava <span class="muted small">${h(stravaStatus)}</span></div>
-    <div class="buttons"><button class="btn primary" onclick="connectStrava()" ${stravaConnecting ? 'disabled' : ''}>${stravaConnecting ? 'Conectando…' : 'Conectar Strava'}</button>
-      <button class="btn" onclick="fetchStrava(true)" ${stravaLoading ? 'disabled' : ''}>${stravaLoading ? 'Cargando…' : 'Actualizar actividades'}</button>
-      <button class="btn" onclick="document.getElementById('garmin-file').click()">Importar CSV Garmin</button><input id="garmin-file" type="file" accept=".csv" hidden onchange="importGarmin(this)"></div>
-    <p class="small muted">Garmin → Strava → Supabase → NutriBook. Los tokens se guardan en el servidor. Strava puede no incluir calorías.</p></div>
-  <div class="section-head"><h2>Semana</h2></div>
-  <div class="day-list">${dates.map((d) => {
-    const manual = (state.workouts || []).filter((w) => w.date === d), auto = stravaItems.filter((a) => a.start_date?.slice(0, 10) === d);
-    return `<div class="card day-card ${d === today() ? 'today' : ''}"><div class="day-card-head"><b>${fmtDay(d)}</b><button class="btn mini" onclick="openWorkoutForm(${q(d)})">+ Añadir</button></div>
-      ${manual.map((w) => `<div class="entry"><span class="entry-meal">${w.origin === 'garmin-csv' ? 'Garmin' : 'Manual'}</span><span class="entry-name">${h(w.sport)}${w.minutes ? ' · ' + w.minutes + ' min' : ''}${w.activeCalories ? ' · ' + w.activeCalories + ' kcal activas' : ''}${w.reportedCalories != null ? ' · ' + w.reportedCalories + ' kcal (Garmin, sin verificar)' : ''}</span><button class="icon-btn" aria-label="Quitar" onclick="removeWorkout(${q(w.id)})">×</button></div>`).join('')}
-      ${auto.map((a) => `<div class="entry"><span class="entry-meal">Strava</span><span class="entry-name">${h(a.name || a.sport_type || 'Actividad')} · ${Math.round((a.moving_time || 0) / 60)} min${a.distance_m ? ' · ' + (a.distance_m / 1000).toFixed(2) + ' km' : ''}${a.average_heartrate ? ' · ' + Math.round(a.average_heartrate) + ' ppm' : ''}${a.calories != null ? ' · ' + Math.round(a.calories) + ' kcal' : ''}</span></div>`).join('')}
-      ${manual.length + auto.length ? '' : '<div class="muted small" style="padding:6px 0">Sin actividad.</div>'}</div>`;
-  }).join('')}</div>
-  <div class="notice">Garmin Connect permite exportar la lista de actividades como CSV. La columna Calories puede ser calorías totales, no solo activas: se guarda aparte y no se usa para calcular objetivos.</div>`;
-}
-function openWorkoutForm(date) {
-  showModal(`${modalTop('Añadir entrenamiento', `<div class="eyebrow">${fmtDay(date)}</div>`)}
-    <form onsubmit="event.preventDefault();addWorkout(this,${q(date)})"><div class="form-grid">
-      ${field('Deporte', `<input name="sport" required placeholder="Natación, ciclismo, carrera, fuerza…">`, 'wide')}
-      ${field('Duración (min)', `<input name="minutes" type="number" min="0">`)}
-      ${field('Calorías activas estimadas', `<input name="kcal" type="number" min="0">`)}</div>
-      <div class="buttons" style="margin-top:15px"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" onclick="closeModal()">Cancelar</button></div></form>`);
-}
-function addWorkout(form, date) {
-  const f = Object.fromEntries(new FormData(form));
-  state.workouts = state.workouts || [];
-  state.workouts.push({ id: eid(), date, sport: f.sport.trim(), minutes: f.minutes === '' ? null : Number(f.minutes), activeCalories: f.kcal === '' ? null : Number(f.kcal), origin: 'manual' });
-  save(); closeModal(); render(); toast('Entrenamiento guardado');
-}
-function removeWorkout(id) {
-  const old = state.workouts.find((x) => x.id === id);
-  state.workouts = state.workouts.filter((x) => x.id !== id);
-  save(); renderMain();
-  toast('Entrenamiento eliminado', '', { label: 'Deshacer', run: () => { state.workouts.push(old); save(); renderMain(); } });
-}
-function csvRows(txt) {
-  const rows = txt.replace(/^﻿/, '').trim().split(/\r?\n/), sep = (rows[0].match(/;/g) || []).length > (rows[0].match(/,/g) || []).length ? ';' : ',';
-  return rows.map((line) => {
-    const cells = []; let fieldText = '', quote = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { if (quote && line[i + 1] === '"') { fieldText += '"'; i++; } else quote = !quote; }
-      else if (c === sep && !quote) { cells.push(fieldText); fieldText = ''; }
-      else fieldText += c;
-    }
-    cells.push(fieldText);
-    return cells;
-  });
-}
-async function importGarmin(input) {
-  const file = input.files?.[0];
-  if (!file) return;
-  try {
-    const rows = csvRows(await file.text()), heads = rows.shift().map((x) => x.toLowerCase().trim());
-    const find = (variants) => heads.findIndex((x) => variants.includes(x));
-    const dateCol = find(['date', 'fecha']), calCol = find(['calories', 'calorías', 'calorias']), nameCol = find(['title', 'título', 'titulo', 'activity type', 'tipo de actividad']);
-    if (dateCol < 0) { toast('El CSV no tiene una columna Date/Fecha reconocible.', 'warn'); return; }
-    const ws = rows.map((r) => {
-      const raw = (r[dateCol] || '').trim();
-      let date = raw.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
-      if (!date) { const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (m) date = m[3] + '-' + m[2] + '-' + m[1]; }
-      if (!date) return null;
-      const calories = calCol < 0 ? null : Number((r[calCol] || '').replace(/[^0-9.]/g, ''));
-      return { id: eid(), date, sport: r[nameCol] || 'Actividad Garmin', minutes: null, activeCalories: null, reportedCalories: Number.isFinite(calories) ? calories : null, origin: 'garmin-csv' };
-    }).filter(Boolean);
-    if (!ws.length) { toast('No se encontraron fechas compatibles en el CSV.', 'warn'); return; }
-    if (!confirm(`¿Importar ${ws.length} actividades? Las calorías del CSV no se considerarán calorías activas.`)) return;
-    state.workouts = state.workouts || [];
-    const seen = new Set(state.workouts.filter((w) => w.origin === 'garmin-csv').map((w) => w.date + '|' + w.sport + '|' + w.reportedCalories));
-    let added = 0;
-    for (const w of ws) { const k = w.date + '|' + w.sport + '|' + w.reportedCalories; if (!seen.has(k)) { state.workouts.push(w); seen.add(k); added++; } }
-    save(); render(); toast(`Añadidas ${added} actividades`);
-  } catch (e) { toast('Error leyendo el CSV: ' + e.message, 'warn'); }
-  finally { input.value = ''; }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Perfil y datos
 // ═══════════════════════════════════════════════════════════════════════════
 function profile() {
@@ -1076,11 +948,6 @@ window.addEventListener('hashchange', () => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal) closeModal(); });
 
-// Vuelta de Strava (?strava=connected|cancelled)
-let afterStrava = null;
-const stravaParam = new URLSearchParams(location.search).get('strava');
-if (stravaParam) { page = 'Entrenamientos'; history.replaceState(null, '', location.pathname + '#Entrenamientos'); afterStrava = stravaParam; }
-
 window.NutriBook = { getState: () => state, save };
 if (!window.NutriCloud) authLoading = false;
 render();
@@ -1095,11 +962,6 @@ window.NutriCloud?.start({
   },
   onReady: () => {
     authLoading = false; render();
-    if (afterStrava) {
-      toast(afterStrava === 'connected' ? 'Strava conectado ✓' : 'Conexión con Strava cancelada', afterStrava === 'connected' ? '' : 'warn');
-      if (afterStrava === 'connected') { stravaTried = true; fetchStrava(true); }
-      afterStrava = null;
-    }
   },
   onConnect: () => {
     const meta = window.NutriCloud?.getUserMeta?.() || {};
