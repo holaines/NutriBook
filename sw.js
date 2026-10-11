@@ -22,6 +22,7 @@ const SHELL = [
   'src/stats.js',
   'src/recipe-iron.js',
   'src/absorption.js',
+  'src/suggest.js',
   'src/planner.js',
   'src/ui.js',
   'src/pages/home.js',

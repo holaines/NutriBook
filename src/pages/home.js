@@ -43,7 +43,7 @@ function home() {
   const d = today(), di = dayIron(d), hour = new Date().getHours();
   const hello = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
   const missing = Math.max(0, di.goal - di.total);
-  const ideas = missing > 0 ? (window.RAK ? RAK.suggestRecipes() : []).slice(0, 2) : [];
+  const gap = gapSuggestionsFor(d);
   const dates = weekDates(weekStart(0));
   const plannedWeek = dates.reduce((n, x) => n + MEALS.filter((m) => state.plan[x + '|' + m]).length, 0);
 
@@ -82,7 +82,7 @@ function home() {
           <div class="${missing > 0 ? 'need' : 'ok'}">${missing > 0 ? `Te faltan <b>${fmtMg(missing)} mg</b> para tu objetivo` : '✓ ¡Objetivo de hoy cubierto!'}</div>
           ${di.unknown ? `<small class="muted">${di.unknown} comida(s) sin dato de hierro</small>` : ''}</div></div>
       ${tipsHtml(d)}
-      ${ideas.length ? `<div class="ideas"><small class="muted">Ideas ricas en hierro:</small>${ideas.map((r) => `<button class="chip-btn" ${on('click', 'viewRecipe', r.id)}>${h(r.emoji || '')} ${h(r.name)} · ${fmtMg(r.iron)} mg</button>`).join('')}</div>` : ''}</div>
+      ${gapHtml(gap)}</div>
     ${(state.supplements || []).length ? supplementsCard() : ''}
     <div class="card"><div class="card-title">Hoy en tu menú <button class="link" ${on('click', 'navigate', 'Calendario')}>Calendario →</button></div>${meals}</div>
   </section>
@@ -95,4 +95,20 @@ function home() {
   ${state.recipes.length ? `<div class="grid">${[...state.recipes].reverse().slice(0, 3).map(recipeCard).join('')}</div>`
     : empty('Tu recetario empieza aquí', 'Añade tu primera receta o pega una de internet.', `<div class="buttons center"><button class="btn primary" ${on('click', 'openForm')}>Añadir receta</button><button class="btn" ${on('click', 'openImport')}>Pegar receta</button></div>`)}
   ${!window.NutriCloud?.getUser?.() && window.NutriCloud ? `<div class="notice">Tus datos están solo en este navegador. <button class="link" ${on('click', 'navigate', 'Perfil')}>Inicia sesión en «Mi perfil»</button> para sincronizarlos y no perderlos.</div>` : ''}`;
+}
+
+/** «Para llegar a tu objetivo»: sugerencias de receta (planificar) o alimento (registrar en un toque). */
+function gapHtml(list) {
+  if (!list.length) return '';
+  return `<div class="gap"><small class="muted">Para llegar a tu objetivo${list[0].meal ? ' · ' + list[0].meal.toLowerCase() : ''}:</small>${list.map((s) => `<div class="gap-row"><span class="gap-name"><b>${h(s.name)}</b> <small class="muted">· ${h(s.why)}</small></span><span class="entry-fe">+${fmtMg(s.mg)} mg</span>
+    <button class="btn mini" ${s.kind === 'recipe' ? on('click', 'openPlan', s.id, s.date, s.meal) : on('click', 'addSuggestedFood', s.id, s.date, s.meal)}>${s.kind === 'recipe' ? 'Planificar' : 'Añadir'}</button></div>`).join('')}</div>`;
+}
+/** Registra una ración de un alimento sugerido en esa comida, con opción de deshacer. */
+function addSuggestedFood(foodId, date, meal) {
+  const f = foodById(foodId);
+  if (!f) return;
+  const id = eid(), fe = foodPortionIron(f);
+  state.consumed.push({ id, date, meal, name: f.name, iron: fe, ironType: f.type, foodId: f.id, portions: 1 });
+  save(); renderMain();
+  toast(`${f.name}: +${fmtMg(fe)} mg de hierro`, '', { label: 'Deshacer', run: () => { state.consumed = state.consumed.filter((x) => x.id !== id); save(); renderMain(); } });
 }
