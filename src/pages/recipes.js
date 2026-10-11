@@ -160,10 +160,34 @@ async function estimateIron(id, silent = false) {
 }
 
 function openImport() {
-  showModal(`${modalTop('Pegar una receta')}
-    <p class="muted">Pega una receta con nombre, «Ingredientes» y «Preparación». Podrás revisar los campos antes de guardar.</p>
-    <textarea id="raw-recipe" style="width:100%;min-height:250px" placeholder="Galletas de avena&#10;Ingredientes&#10;120 g de avena&#10;1 plátano&#10;Preparación&#10;Mezclar todo.&#10;Hornear 20 minutos."></textarea>
-    <div class="buttons" style="margin-top:15px"><button class="btn primary" ${on('click', 'parseImport')}>Extraer receta</button></div>`);
+  showModal(`${modalTop('Importar una receta')}
+    <div class="import-url"><label class="field"><span>Desde un enlace (recetas con datos estructurados: la mayoría de blogs y webs de cocina)</span>
+      <input id="import-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off"></label>
+      <button id="import-url-btn" class="btn primary" ${on('click', 'importFromUrl')}>Importar enlace</button></div>
+    <hr class="line"><p class="muted">O pega una receta con nombre, «Ingredientes» y «Preparación». Podrás revisar los campos antes de guardar.</p>
+    <textarea id="raw-recipe" style="width:100%;min-height:200px" placeholder="Galletas de avena&#10;Ingredientes&#10;120 g de avena&#10;1 plátano&#10;Preparación&#10;Mezclar todo.&#10;Hornear 20 minutos."></textarea>
+    <div class="buttons" style="margin-top:15px"><button class="btn" ${on('click', 'parseImport')}>Extraer del texto</button></div>`);
+}
+/** Pide al servidor que lea la página y abre el formulario con un borrador (nada se guarda hasta confirmar). */
+async function importFromUrl() {
+  const input = document.getElementById('import-url'), btn = document.getElementById('import-url-btn'), url = (input?.value || '').trim();
+  if (!/^https?:\/\/[^\s]+\.[^\s]+/i.test(url)) { toast('Pega un enlace completo que empiece por https://', 'warn'); return; }
+  const client = window.NutriCloud?.getClient?.(), cfg = window.NUTRIBOOK_SUPABASE;
+  const token = client ? (await client.auth.getSession()).data?.session?.access_token : null;
+  if (!token || !cfg?.url) { toast('Inicia sesión en «Mi perfil» para importar desde un enlace.', 'warn'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Leyendo la página…'; }
+  try {
+    const res = await fetch(cfg.url + '/functions/v1/recipe-import', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + token }, body: JSON.stringify({ url }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.recipe) throw new Error(data.error || 'Error ' + res.status);
+    const r = data.recipe;
+    openForm('', { name: r.name, description: r.description || 'Importada de un enlace; revisa los datos.', emoji: '🥗', categories: ['Comidas'], ingredients: parseIngredients((r.ingredients || []).join('\n')),
+      instructions: r.instructions || [], servings: r.servings || 4, time: r.time || 30, iron: '', source: r.source || url });
+    toast('Receta leída: revisa los datos y guarda', '');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Importar enlace'; }
+    toast('No se pudo importar: ' + e.message, 'warn');
+  }
 }
 function parseImport() {
   const rows = sub(document.getElementById('raw-recipe').value);

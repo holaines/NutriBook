@@ -51,7 +51,7 @@ export async function loadApp({ data, user = true, now = NOW, db = null, onboard
   } else {
     w.NUTRIBOOK_SUPABASE = { url: 'https://x.test', key: 'anon-key' };
     w.NutriCloud = {
-      getClient: () => ({ from: rakQuery, auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) } }),
+      getClient: () => ({ from: rakQuery, auth: { getSession: async () => ({ data: { session: user ? { access_token: 't' } : null } }) } }),
       getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',
       scheduleSave: (s) => saved.push(s), start: (o) => o.onReady(),
     };
