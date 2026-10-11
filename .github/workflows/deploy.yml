@@ -22,6 +22,17 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # Comprobación de tipos de las Edge Functions (informativa: no bloquea el despliegue)
+  check-functions:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/*/index.ts
+
   # Déploie la table rak_menus et la Edge Function rak-fetch
   # Nécessite le secret SUPABASE_ACCESS_TOKEN (token personnel depuis
   # https://supabase.com/dashboard/account/tokens)
@@ -30,6 +41,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verificar secretos obligatorios
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN GEMINI_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto de GitHub $v"; exit 1; fi
+          done
 
       - uses: supabase/setup-cli@v1
         with:

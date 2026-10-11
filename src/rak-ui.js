@@ -11,8 +11,8 @@ const rakPageActive = () => ['Inicio', 'Calendario', 'Equilibrio'].includes(page
 /** Carga la semana desde la base de datos y, si falta o está vieja, pide al servidor que la traiga del RAK. */
 async function ensureRak(start, { force = false } = {}) {
   if (!window.RAK || !window.NutriCloud?.getClient?.()) return;
-  const cur = rakWeeks[start];
-  if (rakBusy(cur?.state) || (cur && !force)) return;
+  const cur = rakWeeks[start], loggedIn = Boolean(window.NutriCloud.getUser?.());
+  if (rakBusy(cur?.state) || (cur && !force && !(cur.needsLogin && loggedIn))) return;   // al iniciar sesión se reintenta
   const dates = weekDates(start), thisWeek = weekStart(0), horizon = datePlus(thisWeek, 14);
   const set = (key, o) => { rakWeeks[key] = o; if (rakPageActive()) renderMain(); };
   const next = datePlus(start, 7);
@@ -21,7 +21,11 @@ async function ensureRak(start, { force = false } = {}) {
   try {
     let info = await RAK.loadWeek(dates);
     const stale = !info.fetchedAt || Date.now() - new Date(info.fetchedAt).getTime() > 24 * 3600e3;
-    if (start >= thisWeek && start <= horizon && (force || info.count === 0 || stale)) {
+    if (start >= thisWeek && start <= horizon && (force || info.count === 0 || stale) && !loggedIn) {
+      // sin sesión se muestra lo guardado, pero el servidor no aceptaría el refresco
+      set(start, { state: info.count ? 'done' : 'empty', count: info.count, fetchedAt: info.fetchedAt, needsLogin: true });
+      if (force) toast('Inicia sesión en «Mi perfil» para actualizar el menú del RAK', 'warn');
+    } else if (start >= thisWeek && start <= horizon && (force || info.count === 0 || stale)) {
       const targets = [start];
       if (next <= horizon) { targets.push(next); fetchingNext = !rakBusy(rakWeeks[next]?.state); }
       if (fetchingNext) rakWeeks[next] = { state: 'fetching' };
@@ -34,7 +38,8 @@ async function ensureRak(start, { force = false } = {}) {
         fetchingNext = false;
       }
       set(start, { state: info.count ? 'done' : 'empty', count: info.count, fetchedAt: info.fetchedAt, pending: rep.pending || 0 });
-      if (force) {
+      if (force && rep.skipped) toast('El menú del RAK ya estaba al día');
+      else if (force) {
         toast(rep.pending ? `Menú RAK actualizado. Quedan ${rep.pending} platos por analizar: vuelve a pulsar «Actualizar» en un rato.` : `Menú RAK actualizado · ${rep.menus_fetched} platos`, rep.pending ? 'warn' : '');
       }
     } else {
@@ -57,7 +62,7 @@ function rakBanner(start) {
   const msg = {
     loading: 'Cargando el menú del RAK…',
     fetching: 'Buscando el menú en la web del RAK y analizando gluten y hierro… puede tardar hasta un minuto.',
-    done: `Menú RAK de esta semana: <b>${st.count}</b> platos · actualizado ${ago(st.fetchedAt)}${st.pending ? ` · <b>${st.pending}</b> sin analizar aún` : ''}${st.message ? ' · ⚠ no se pudo actualizar' : ''}`,
+    done: `Menú RAK de esta semana: <b>${st.count}</b> platos · actualizado ${ago(st.fetchedAt)}${st.pending ? ` · <b>${st.pending}</b> sin analizar aún` : ''}${st.message ? ' · ⚠ no se pudo actualizar' : ''}${st.needsLogin ? ' · inicia sesión para actualizarlo' : ''}`,
     empty: start < weekStart(0) ? 'No hay menú RAK guardado para esta semana pasada.' : 'El RAK todavía no ha publicado el menú de esta semana (o aún no se ha cargado).',
     error: 'No se pudo cargar el menú del RAK: ' + h(st.message || 'error desconocido'),
   }[st.state];

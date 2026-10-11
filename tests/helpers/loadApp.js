@@ -47,6 +47,7 @@ export async function loadApp({ data, user = true, now = NOW, db = null } = {}) 
     };
     w.supabase = { createClient: () => client };
   } else {
+    w.NUTRIBOOK_SUPABASE = { url: 'https://x.test', key: 'anon-key' };
     w.NutriCloud = {
       getClient: () => ({ from: rakQuery, auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) } }),
       getUser: () => (user ? { id: 'u1' } : null), getUserMeta: () => ({}), panel: () => '', syncBadge: () => '',

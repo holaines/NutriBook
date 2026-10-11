@@ -105,3 +105,25 @@ test('formularios: el envío pasa el <form> real (perfil, comida manual, receta)
   assert.equal(app.eval(`state.recipes.some((r) => r.name === 'Tortilla')`), true);
   assert.deepEqual(app.errors, []);
 });
+
+test('RAK sin sesión: pulsar «Actualizar» avisa de que hay que iniciar sesión y no llama al servidor', async () => {
+  const app = await loadApp({ user: false });
+  await app.go('Calendario');
+  await app.settle(300);
+  app.eval(`refreshRAK()`);
+  await app.settle(300);
+  assert.equal(app.fetchCalls.filter((c) => /rak-fetch/.test(c.u)).length, 0);
+  assert.match(app.w.document.body.textContent, /Inicia sesión en «Mi perfil» para actualizar el menú del RAK/);
+  assert.match(app.text(), /inicia sesión para actualizarlo/);
+});
+
+test('RAK con sesión: pulsar «Actualizar» llama a rak-fetch con el token del usuario', async () => {
+  const app = await loadApp();
+  await app.go('Calendario');
+  await app.settle(300);
+  app.eval(`refreshRAK()`);
+  await app.settle(300);
+  const calls = app.fetchCalls.filter((c) => /rak-fetch/.test(c.u));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].o.headers.Authorization, 'Bearer t');
+});

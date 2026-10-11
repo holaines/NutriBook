@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { shouldSkipRefresh } from "../_shared/policy.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,25 @@ Deno.serve(async (req) => {
   try {
     const geminiKey = Deno.env.get("GEMINI_KEY");
     if (!geminiKey) throw new Error("GEMINI_KEY secret not configured");
+
+    // Solo usuarios con sesión: la función usa la clave de Gemini y la service role.
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: { user } } = await admin.auth.getUser(token);
+    if (!user) {
+      return Response.json({ error: "Inicia sesión para actualizar el menú del RAK" }, { status: 401, headers: corsHeaders });
+    }
+
+    // Límite de frecuencia: si se acaba de actualizar todo y nada está pendiente, no se vuelve a leer el RAK.
+    const [{ data: latest }, { count: pendingCount }] = await Promise.all([
+      admin.from("rak_menus").select("fetched_at").order("fetched_at", { ascending: false }).limit(1),
+      admin.from("rak_menus").select("id", { count: "exact", head: true }).eq("gluten_status", "unknown"),
+    ]);
+    if (shouldSkipRefresh({ latestFetchedAt: latest?.[0]?.fetched_at, pendingCount: pendingCount ?? 0 })) {
+      return Response.json(
+        { menus_fetched: 0, menus_updated: 0, analyzed: 0, pending: 0, skipped: "recent", weeks: [], errors: [] },
+        { headers: corsHeaders },
+      );
+    }
 
     const body = await req.json().catch(() => ({})) as { weekStart?: string | null; weekStarts?: string[] };
     const requested = body.weekStarts?.length ? body.weekStarts : [body.weekStart ?? null];

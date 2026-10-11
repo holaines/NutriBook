@@ -15,10 +15,10 @@
     if(!client) return '<div class="card">No se pudo cargar Supabase. Revisa la conexión a Internet.</div>';
     const meta = user?.user_metadata || {};
     return '<div class="card" style="margin-bottom:20px"><h3>&#x2601;&#xFE0F; Mi cuenta y sincronización</h3><p id="cloud-status">'+esc(status || (user?'Sesión iniciada':'Sin sesión'))+'</p>'+(user
-      ? '<p>'+esc(user.email||'')+'</p><div class="buttons"><button class="btn primary" onclick="this.disabled=true;this.textContent=\'Sincronizando\u2026\';NutriCloud.syncNow().finally(()=>{this.disabled=false;this.textContent=\'Sincronizar ahora\'})">Sincronizar ahora</button><button class="btn" onclick="NutriCloud.signOut()">Cerrar sesión</button></div>'
-      : '<p class="muted">Introduce tu correo para recibir un enlace de acceso.</p><div class="buttons"><input id="cloud-email" type="email" placeholder="Tu correo electrónico" style="min-width:220px;padding:10px;border-radius:10px;border:1px solid #eddce3"><button class="btn primary" onclick="NutriCloud.signIn()">Recibir enlace</button></div>')+'</div>';
+      ? '<p>'+esc(user.email||'')+'</p><div class="buttons"><button class="btn primary" data-click="cloudSyncNow" data-args=\'["@el"]\'>Sincronizar ahora</button><button class="btn" data-click="cloudSignOut">Cerrar sesión</button></div>'
+      : '<p class="muted">Introduce tu correo para recibir un enlace de acceso.</p><div class="buttons"><input id="cloud-email" type="email" placeholder="Tu correo electrónico" style="min-width:220px;padding:10px;border-radius:10px;border:1px solid #eddce3"><button class="btn primary" data-click="cloudSignIn">Recibir enlace</button></div>')+'</div>';
   }
-  const refresh=()=>{if(typeof window.render==='function')window.render();else document.querySelector('[onclick="navigate(\'Perfil\')"]')?.click()};
+  const refresh=()=>{if(typeof window.render==='function')window.render()};
   async function start(opts){
     readLocal=opts.read;applyCloud=opts.apply;
     if (!client) { opts.onReady?.(); return; }
@@ -95,5 +95,10 @@
     if(status.includes('Guardando'))return'<div class="sync-badge saving">'+img+'\u2601 Guardando\u2026</div>';
     return'<div class="sync-badge ok">'+img+'\u2601 '+esc(user.email?.split('@')[0]||'')+'</div>';
   }
+  window.NBEvents?.register({
+    cloudSyncNow: (btn) => { btn.disabled=true;btn.textContent='Sincronizando\u2026';syncNow().finally(()=>{btn.disabled=false;btn.textContent='Sincronizar ahora'}) },
+    cloudSignOut: () => signOut(),
+    cloudSignIn: () => signIn(),
+  });
   window.NutriCloud={panel,start,scheduleSave,signIn,signOut,syncNow,syncBadge,getClient:()=>client,getUser:()=>user,getUserMeta:()=>user?.user_metadata||{}};
 })();
