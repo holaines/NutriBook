@@ -96,8 +96,9 @@ test('imprimir y descargar: llaman a window.print y generan un CSV con BOM para 
   app.eval(`downloadReportCsv()`);
   assert.equal(app.eval(`window.__name`), 'nutribook-informe-2026-10-20.csv');
   assert.equal(app.eval(`window.__blob.type`), 'text/csv;charset=utf-8');
-  const text = await app.eval(`window.__blob.text()`);
-  assert.ok(text.startsWith('﻿fecha;hierro_mg'));
+  const bytes = await app.eval(`new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(Array.from(new Uint8Array(fr.result))); fr.readAsArrayBuffer(window.__blob); })`);
+  assert.deepEqual(Array.from(bytes).slice(0, 3), [0xef, 0xbb, 0xbf], 'BOM UTF-8 para que Excel respete los acentos');
+  assert.ok(Buffer.from(Array.from(bytes).slice(3)).toString('utf8').startsWith('fecha;hierro_mg'));
 });
 
 test('navegación: «Informe» sale en «Más» y en Mi hierro; el CSS de impresión oculta el menú y los botones', async () => {
